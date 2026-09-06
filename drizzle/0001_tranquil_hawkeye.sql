@@ -1,0 +1,1 @@
+DROP TABLE "championship_lineups" CASCADE;
