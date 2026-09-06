@@ -54,7 +54,7 @@ export function Landing({ S }) {
           BET THE GRID.<br /><span className="yel">SPLIT THE POOL.</span>
         </h1>
         <p style={{ fontSize: 16, color: "var(--muted-2)", maxWidth: 460, marginTop: 20 }}>
-          Parimutuel F1 betting for the Executive1 roleplay server. Back a driver to finish P1, and winners split the entire race pool proportional to their stake. No bookmaker, no set odds, no house exposure.
+          Parimutuel racing betting for the FEAR roleplay server. Back a driver to finish P1, and winners split the entire race pool proportional to their stake. No bookmaker, no set odds, no house exposure.
         </p>
         <div className="flex" style={{ gap: 12, marginTop: 32 }}>
           <Link href="/login" className="btn btn-y btn-pill">Log in</Link>
@@ -101,13 +101,14 @@ export function Landing({ S }) {
         <div className="muted2" style={{ marginTop: 10 }}>An admin creates your account and sends a temporary password. Then: deposit → bet → the race settles and your payout queues itself for release → request a withdrawal when you want it in hand.</div></div>
       <Link href="/login" className="btn btn-y">Log in</Link>
     </div></div>
-    <div className="footer"><div className="wrap g4" style={{ display: "grid", gridTemplateColumns: "1.4fr repeat(3,1fr)", gap: 32 }}>
-      <div><div className="brand brand-foot">
-        <div className="brand-name">EXECUTIVE1 <span>BETS</span></div>
+    <div className="footer"><div className="wrap">
+      <div className="brand brand-foot">
+        <div className="brand-name">FEAR <span>BETS</span></div>
         <div className="brand-by"><em>powered by</em><img src="/assets/logo-mark.png" alt="AEAR" /></div></div>
-        <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 10, maxWidth: 280 }}>An in-game betting sandbox for the Executive1 FiveM roleplay server. All currency is fictional and has no cash value.</div></div>
-      {[["Platform", ["Race calendar", "How pooled odds work", "Withdrawal policy", "Dispute rulings"]], ["Community", ["Discord", "Server rules", "Driver roster"]], ["Support", ["Deposit help", "Contact an admin", "Audit log policy"]]].map(([h, ls]) => <div key={h}>
-        <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>{h}</div>{ls.map(l => <a key={l} href="#" onClick={e => e.preventDefault()}>{l}</a>)}</div>)}
+      <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 10, maxWidth: 280 }}>An in-game betting sandbox for the FEAR FiveM roleplay server. All currency is fictional and has no cash value.</div>
+      <div style={{ marginTop: 32, paddingTop: 20, borderTop: "1px solid var(--hair)", fontSize: 12, color: "var(--muted)" }}>
+        © FEAR 2026.
+      </div>
     </div></div>
   </div>;
 }
@@ -146,10 +147,9 @@ export function Auth() {
     <div className="card" style={{ width: 440, padding: 32 }}>
       {step === 1 ? <>
         <h2 className="ttl-lg">Log in</h2>
-        <div className="muted2" style={{ fontSize: 13, marginTop: 6, marginBottom: 24 }}>Accounts are issued by the Executive1 admin team. Use the username and temporary password they sent you.</div>
+        <div className="muted2" style={{ fontSize: 13, marginTop: 6, marginBottom: 24 }}>Accounts are issued by the <span className="yel">FEAR</span> admin team. Use the username and temporary password they sent you.</div>
         <div style={{ marginBottom: 16 }}><label className="f">USERNAME</label><input className="input" value={username} onChange={ev => setUsername(ev.target.value)} /></div>
-        <div style={{ marginBottom: 8 }}><label className="f">PASSWORD</label><input className="input" type="password" value={password} onChange={ev => setPassword(ev.target.value)} /></div>
-        <div style={{ textAlign: "right", marginBottom: 16 }}><a href="#" onClick={ev => ev.preventDefault()} style={{ fontSize: 13 }}>Forgot password?</a></div>
+        <div style={{ marginBottom: 16 }}><label className="f">PASSWORD</label><input className="input" type="password" value={password} onChange={ev => setPassword(ev.target.value)} /></div>
         {error && <div className="cap down" style={{ marginBottom: 12 }}>{error}</div>}
         <button className="btn btn-y" style={{ width: "100%", marginTop: 8 }} disabled={busy || !username || !password} onClick={submitLogin}>{busy ? "Logging in…" : "Log in"}</button>
       </> : <>
@@ -165,7 +165,7 @@ export function Auth() {
         <button className="btn btn-y" style={{ width: "100%", marginTop: 8 }} disabled={busy || pw.length < 8 || pw !== pw2} onClick={submitPassword}>{busy ? "Saving…" : "Save and go to dashboard"}</button>
       </>}
       <div className="muted" style={{ fontSize: 13, textAlign: "center", marginTop: 20 }}>
-        No account? <Link href="/">Ask an admin in Discord</Link> to create one.
+        No account? Forgot password? Contact <span className="yel">FEAR</span> directly IC.
       </div>
     </div>
   </div>;

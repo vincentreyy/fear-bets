@@ -20,8 +20,8 @@ const plex = IBM_Plex_Sans({
 });
 
 export const metadata = {
-  title: "Executive1 Bets — F1 parimutuel betting",
-  description: "In-game parimutuel F1 betting for the Executive1 FiveM roleplay server.",
+  title: "FEAR Bets — parimutuel betting",
+  description: "In-game parimutuel racing betting for the FEAR FiveM roleplay server.",
 };
 
 export default async function RootLayout({ children }) {
