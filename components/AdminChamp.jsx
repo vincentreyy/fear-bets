@@ -178,7 +178,7 @@ export function AdminChampionships({ S }) {
         <div className="ttl-sm" style={{ marginBottom: 4 }}>Build a preset</div>
         <div className="cap" style={{ marginBottom: 14 }}>Set the value for each scoring position. Add or remove positions to change how deep the points go.</div>
         <label className="f">PRESET NAME</label>
-        <input className="input" value={pName} onChange={e => setPName(e.target.value)} placeholder="Executive1 house scale" />
+        <input className="input" value={pName} onChange={e => setPName(e.target.value)} placeholder="FEAR house scale" />
         <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(72px,1fr))", gap: 8, margin: "14px 0" }}>
           {pRows.map((v, i) => <div key={i}>
             <label className="f" style={{ marginBottom: 3 }}>P{i + 1}</label>
