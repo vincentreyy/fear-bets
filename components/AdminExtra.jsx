@@ -2,9 +2,35 @@
 import { useState } from "react";
 import { Stat } from "./UserScreens";
 import { useServerAction } from "@/lib/useServerAction";
+import { useToast } from "@/components/ToastProvider";
 import { CUR, fmt, money, ago, PERMS, ALL_PERMS, PERM_LABEL } from "@/lib/store";
 import { createUser, resetPassword, toggleUserStatus, adjustBalance } from "@/app/actions/users";
 import { createRole, editRole, deleteRole, setUserRole } from "@/app/actions/roles";
+
+function copyToClipboard(text, say) {
+  navigator.clipboard.writeText(text).then(() => say("Copied to clipboard.")).catch(() => say("Couldn't copy — select and copy manually."));
+}
+
+// Shown after createUser/resetPassword succeed — the temp password is only
+// ever returned once by the action, so it has to be surfaced here rather
+// than looked up later.
+function TempPasswordModal({ title, username, tempPassword, onClose }) {
+  const { say } = useToast();
+  return <div className="modal-bg" onClick={onClose}><div className="modal" style={{ maxWidth: 440 }} onClick={ev => ev.stopPropagation()}>
+    <h3 className="ttl-md">{title}</h3>
+    <div className="muted2" style={{ fontSize: 13, margin: "8px 0 20px" }}>Send this to @{username} — they'll be forced to set their own password on next login.</div>
+    <div className="card-flat" style={{ background: "var(--elev)", padding: "12px 14px" }}>
+      <div className="cap" style={{ marginBottom: 6 }}>TEMPORARY PASSWORD</div>
+      <div className="flex" style={{ justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+        <span className="num" style={{ background: "var(--canvas)", padding: "6px 12px", borderRadius: 6, fontSize: 13 }}>{tempPassword}</span>
+        <button className="btn btn-ghost btn-xs" onClick={() => copyToClipboard(tempPassword, say)}>Copy</button></div>
+      <div className="cap" style={{ color: "var(--muted)", marginTop: 8 }}>Shown once — it can't be retrieved again after you close this.</div>
+    </div>
+    <div className="flex" style={{ marginTop: 20, justifyContent: "flex-end" }}>
+      <button className="btn btn-y btn-sm" onClick={onClose}>Done</button>
+    </div>
+  </div></div>;
+}
 
 export function AdminUsers({ S }) {
   const run = useServerAction();
@@ -13,7 +39,7 @@ export function AdminUsers({ S }) {
   const [adj, setAdj] = useState("");
   const [reason, setReason] = useState("");
   const [nu, setNu] = useState(null);
-  const tempPw = useState("temp-8fk2qd")[0];
+  const [pwReveal, setPwReveal] = useState(null);
   const list = S.users.filter(u => (u.name + u.ign + u.un).toLowerCase().includes(q.toLowerCase()));
   const u = S.users.find(x => x.id === open);
   const total = S.users.reduce((s, x) => s + x.bal + x.locked, 0);
@@ -66,19 +92,15 @@ export function AdminUsers({ S }) {
         </select></div>
       <div style={{ marginTop: 12 }}><label className="f">OPENING BALANCE ({CUR}) — OPTIONAL</label>
         <input className="input" value={nu.bal} onChange={ev => setNu(v => ({ ...v, bal: ev.target.value.replace(/[^\d]/g, "") }))} placeholder="0" /></div>
-      <div className="card-flat" style={{ background: "var(--elev)", padding: "12px 14px", marginTop: 16 }}>
-        <div className="cap" style={{ marginBottom: 6 }}>TEMPORARY PASSWORD</div>
-        <div className="flex" style={{ justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-          <span className="num" style={{ background: "var(--canvas)", padding: "6px 12px", borderRadius: 6, fontSize: 13 }}>{tempPw}</span>
-          <button className="btn btn-ghost btn-xs">Copy</button></div>
-        <div className="cap" style={{ color: "var(--muted)", marginTop: 8 }}>Generated automatically. The player is forced to replace it at first login.</div>
-      </div>
+      <div className="cap" style={{ color: "var(--muted)", marginTop: 16 }}>A temporary password will be generated automatically once the account is created. The player is forced to replace it at first login.</div>
       <div className="flex" style={{ gap: 10, marginTop: 20, justifyContent: "flex-end" }}>
         <button className="btn btn-2 btn-sm" onClick={() => setNu(null)}>Cancel</button>
         <button className="btn btn-y btn-sm" disabled={!nu.name.trim() || !nu.ign.trim() || !nu.un.trim() || S.users.some(x => x.un === nu.un.trim())}
-          onClick={() => {
-            run(createUser, { displayName: nu.name.trim(), ign: nu.ign.trim(), username: nu.un.trim(), roleId: nu.roleId || null, initialBalance: Number(nu.bal) || 0 });
+          onClick={async () => {
+            const un = nu.un.trim();
+            const res = await run(createUser, { displayName: nu.name.trim(), ign: nu.ign.trim(), username: un, roleId: nu.roleId || null, initialBalance: Number(nu.bal) || 0 });
             setNu(null);
+            if (res?.ok) setPwReveal({ title: "Account created", username: un, tempPassword: res.tempPassword });
           }}>
           {S.users.some(x => x.un === nu.un.trim()) && nu.un.trim() ? "Username taken" : "Create and issue password"}</button>
       </div>
@@ -88,7 +110,11 @@ export function AdminUsers({ S }) {
         <div><h3 className="ttl-md">{u.name}</h3><div className="muted" style={{ fontSize: 13 }}>@{u.un} · {u.ign} · {u.invited ? "invited " : "joined "}{ago(u.joined)}</div></div>
         <div className="flex" style={{ gap: 6, alignItems: "center" }}>{u.invited && <span className="badge b-pend">temp password</span>}
           <span className={"badge " + (u.status === "active" ? "b-open" : "b-live")}>{u.status}</span>
-          <button className="btn btn-ghost btn-xs" onClick={() => { run(resetPassword, { userId: u.id, reason: reason.trim() || "New temporary password issued" }); setOpen(null); }}>Reset password</button></div></div>
+          <button className="btn btn-ghost btn-xs" onClick={async () => {
+            const res = await run(resetPassword, { userId: u.id, reason: reason.trim() || "New temporary password issued" });
+            setOpen(null);
+            if (res?.ok) setPwReveal({ title: "Password reset", username: u.un, tempPassword: res.tempPassword });
+          }}>Reset password</button></div></div>
       <div className="grid" style={{ gridTemplateColumns: "repeat(3,1fr)", gap: 12, margin: "20px 0" }}>
         <div className="card-flat" style={{ background: "var(--elev)", padding: 14 }}><Stat label="CONFIRMED" value={fmt(u.bal)} color="var(--yellow)" /></div>
         <div className="card-flat" style={{ background: "var(--elev)", padding: 14 }}><Stat label="LOCKED" value={fmt(u.locked)} /></div>
@@ -122,6 +148,7 @@ export function AdminUsers({ S }) {
           <button className="btn btn-y btn-sm" disabled={!Number(adj) || !reason.trim()} onClick={() => { run(adjustBalance, { userId: u.id, amount: Number(adj), reason }); setOpen(null); }}>Apply adjustment</button></div>
       </div>
     </div></div>}
+    {pwReveal && <TempPasswordModal {...pwReveal} onClose={() => setPwReveal(null)} />}
   </div>;
 }
 

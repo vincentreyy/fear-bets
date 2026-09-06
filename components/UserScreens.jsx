@@ -114,9 +114,9 @@ export function Landing({ S }) {
 }
 
 /* ---------- Auth ---------- */
-export function Auth() {
+export function Auth({ forcePasswordChange = false } = {}) {
   const router = useRouter();
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(forcePasswordChange ? 2 : 1);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [pw, setPw] = useState("");
