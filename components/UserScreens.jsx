@@ -54,7 +54,7 @@ export function Landing({ S }) {
           BET THE GRID.<br /><span className="yel">SPLIT THE POOL.</span>
         </h1>
         <p style={{ fontSize: 16, color: "var(--muted-2)", maxWidth: 460, marginTop: 20 }}>
-          Parimutuel racing betting for the Executive FiveM roleplay server. Back a driver to finish P1, and winners split the entire race pool proportional to their stake. No bookmaker, no set odds, no house exposure.
+          Parimutuel racing betting for the Executive FiveM roleplay server, created and managed by FEAR. Back a driver to finish P1, and winners split the entire race pool proportional to their stake. No bookmaker, no set odds, no house exposure.
         </p>
         <div className="flex" style={{ gap: 12, marginTop: 32 }}>
           <Link href="/login" className="btn btn-y btn-pill">Log in</Link>
@@ -105,7 +105,7 @@ export function Landing({ S }) {
       <div className="brand brand-foot">
         <div className="brand-name">FEAR <span>BETS</span></div>
         <div className="brand-by"><em>powered by</em><img src="/assets/logo-mark.png" alt="AEAR" /></div></div>
-      <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 10, maxWidth: 280 }}>An in-game betting sandbox for the Executive FiveM roleplay server. All currency is fictional and has no cash value.</div>
+      <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 10, maxWidth: 280 }}>An in-game betting sandbox for the Executive FiveM roleplay server, created and managed by FEAR. All currency is fictional and has no cash value.</div>
       <div style={{ marginTop: 32, paddingTop: 20, borderTop: "1px solid var(--hair)", fontSize: 12, color: "var(--muted)" }}>
         © FEAR 2026.
       </div>
