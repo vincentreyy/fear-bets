@@ -1,6 +1,6 @@
 # FEAR Bets
 
-In-game parimutuel racing betting for the FEAR FiveM roleplay server. No real money — accounts are issued by admins, deposits/withdrawals are confirmed in-game, and there's no self-registration.
+In-game parimutuel racing betting for the Executive FiveM roleplay server, created and managed by FEAR. No real money — accounts are issued by admins, deposits/withdrawals are confirmed in-game, and there's no self-registration.
 
 ## Stack
 
