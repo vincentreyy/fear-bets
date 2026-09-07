@@ -21,7 +21,7 @@ const plex = IBM_Plex_Sans({
 
 export const metadata = {
   title: "FEAR Bets — parimutuel betting",
-  description: "In-game parimutuel racing betting for the FEAR FiveM roleplay server.",
+  description: "In-game parimutuel racing betting for the Executive FiveM roleplay server, created and managed by FEAR.",
 };
 
 export default async function RootLayout({ children }) {
