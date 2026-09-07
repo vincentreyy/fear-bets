@@ -15,6 +15,13 @@
       "when": 1788687624422,
       "tag": "0001_tranquil_hawkeye",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788804252845,
+      "tag": "0002_narrow_blob",
+      "breakpoints": true
     }
   ]
 }

@@ -383,25 +383,14 @@ export function Wallet({ S, sessionUser }) {
         </div>
         {side === "deposit" ? <>
           <div className="ttl-sm" style={{ marginBottom: 4 }}>Deposit request</div>
-          <div className="cap" style={{ marginBottom: 18 }}>Step {step} of 3</div>
+          <div className="cap" style={{ marginBottom: 18 }}>Step {step} of 2</div>
           {step === 1 && <>
             <label className="f">AMOUNT TO TOP UP ({CUR})</label>
             <input className="input input-lg" value={amt} onChange={e => setAmt(e.target.value.replace(/[^\d]/g, ""))} />
             <div className="flex" style={{ gap: 8, marginTop: 10 }}>{[5000, 10000, 25000].map(v => <button key={v} className="btn btn-ghost btn-xs" onClick={() => setAmt(String(v))}>{fmt(v)}</button>)}</div>
-            <button className="btn btn-y" style={{ width: "100%", marginTop: 18 }} disabled={!Number(amt)} onClick={() => setStep(2)}>Continue</button>
+            <button className="btn btn-y" style={{ width: "100%", marginTop: 18 }} disabled={!Number(amt)} onClick={() => { run(requestDeposit, { amount: Number(amt) }, `Deposit request for ${money(Number(amt))} sent to the admin queue.`); setStep(2); }}>Request deposit</button>
           </>}
           {step === 2 && <>
-            <div className="card-flat" style={{ background: "var(--elev)", marginBottom: 16 }}>
-              <div className="cap" style={{ marginBottom: 8 }}>IN-GAME HANDOFF</div>
-              <div style={{ fontSize: 13, color: "var(--body)" }}>Hand <b className="num yel">{money(Number(amt))}</b> to the betting clerk NPC at Mirror Park garage, or run</div>
-              <div className="num" style={{ background: "var(--canvas)", padding: "8px 12px", borderRadius: 6, marginTop: 8, fontSize: 13 }}>/bet-deposit {amt} {ign}</div>
-            </div>
-            <label className="f">PROOF SCREENSHOT (OPTIONAL)</label>
-            <div className="card-flat" style={{ border: "1px dashed var(--hair)", background: "transparent", textAlign: "center", color: "var(--muted)", fontSize: 13, padding: "20px 12px" }}>Drop an image or click to attach</div>
-            <button className="btn btn-y" style={{ width: "100%", marginTop: 18 }} onClick={() => { run(requestDeposit, { amount: Number(amt) }, `Deposit request for ${money(Number(amt))} sent to the admin queue.`); setStep(3); }}>I've sent it</button>
-            <button className="btn btn-t btn-sm" style={{ width: "100%", marginTop: 6 }} onClick={() => setStep(1)}>Back</button>
-          </>}
-          {step === 3 && <>
             <div className="card-flat" style={{ background: "var(--elev)", textAlign: "center", padding: 24 }}>
               <div className="badge b-pend" style={{ marginBottom: 12 }}>Pending admin approval</div>
               <div className="num" style={{ fontSize: 28, fontWeight: 700 }}>{money(Number(amt))}</div>

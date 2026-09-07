@@ -10,7 +10,6 @@ import { logAction } from "@/lib/audit";
 
 const requestDepositSchema = z.object({
   amount: z.number().int().positive(),
-  proofUrl: z.string().optional(),
 });
 
 // A regular user requests a top-up. Nothing is credited yet — it just enters
@@ -26,7 +25,6 @@ export async function requestDeposit(input) {
     type: "deposit",
     amount: parsed.data.amount,
     status: "pending",
-    proofUrl: parsed.data.proofUrl,
     note: "Awaiting admin approval",
   }).returning();
 
@@ -62,7 +60,7 @@ export async function approveDeposit(input) {
       targetId: deposit.userId,
       before: { confirmedBalance: before.confirmedBalance },
       after: { confirmedBalance: after.confirmedBalance },
-      note: deposit.proofUrl ? "Screenshot verified" : "No proof, handoff confirmed in-game",
+      note: "Handoff confirmed in-game",
     });
     balance = after.confirmedBalance;
   });
