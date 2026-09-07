@@ -129,12 +129,11 @@ export function AdminQueues({ S }) {
           </tr>)}</tbody></table></div>
       </div>}
     </div> : tab === "dep" ? <div className="card">
-      <div className="tblwrap"><table><thead><tr><th>User</th><th>Character</th><th>Age</th><th>Proof</th><th style={{ textAlign: "right" }}>Amount</th><th style={{ textAlign: "right" }}>Action</th></tr></thead>
+      <div className="tblwrap"><table><thead><tr><th>User</th><th>Character</th><th>Age</th><th style={{ textAlign: "right" }}>Amount</th><th style={{ textAlign: "right" }}>Action</th></tr></thead>
         <tbody>{S.depQueue.map(d => <tr key={d.id} className="rowhov">
           <td style={{ fontWeight: 500 }}>{d.user}</td>
           <td className="muted2">{d.ign}</td>
           <td className="muted num" style={{ fontSize: 13 }}>{ago(d.at)}</td>
-          <td>{d.proof ? <a href="#" onClick={e => e.preventDefault()} style={{ fontSize: 13 }}>screenshot.png</a> : <span className="muted" style={{ fontSize: 13 }}>none</span>}</td>
           <td className="num" style={{ textAlign: "right", fontWeight: 600 }}>{money(d.amount)}</td>
           <td style={{ textAlign: "right" }}><div className="flex" style={{ gap: 8, justifyContent: "flex-end" }}>
             <button className="btn btn-ghost btn-xs" onClick={() => setReject({ ...d, mode: "dep" })}>Reject</button>
