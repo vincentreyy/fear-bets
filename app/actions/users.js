@@ -4,7 +4,7 @@ import { z } from "zod";
 import { eq, sql } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 import { db } from "@/lib/db";
-import { users, transactions } from "@/lib/db/schema";
+import { users, transactions, houseLedger } from "@/lib/db/schema";
 import { hashPassword, generateTempPassword } from "@/lib/auth";
 import { requirePermission } from "@/lib/permissions";
 import { logAction } from "@/lib/audit";
@@ -113,6 +113,14 @@ const adjustBalanceSchema = z.object({
   reason: z.string().trim().min(1, "A reason is required."),
 });
 
+// Every balance adjustment also writes a matching house_ledger entry — the
+// same signed `amount` is correct whenever the adjustment is reversing a
+// deposit/withdrawal mistake (debiting a player because a deposit was
+// reversed means the house never really received that cash either, so the
+// house ledger goes negative too, and symmetrically positive for reversing
+// a bad withdrawal payout). The UI reminds the admin of this so adjustments
+// unrelated to real cash (a goodwill credit, fixing an unrelated bug) still
+// get recorded here — see the note text for traceability.
 export async function adjustBalance(input) {
   const admin = await requirePermission("adjust_balances");
   const parsed = adjustBalanceSchema.safeParse(input);
@@ -126,8 +134,13 @@ export async function adjustBalance(input) {
       .set({ confirmedBalance: sql`GREATEST(${users.confirmedBalance} + ${amount}, 0)` })
       .where(eq(users.id, userId))
       .returning();
-    await tx.insert(transactions).values({
+    const [adjustmentTx] = await tx.insert(transactions).values({
       id: createId(), userId, type: "adjustment", amount, status: "applied", note: reason,
+    }).returning();
+    await tx.insert(houseLedger).values({
+      id: createId(), type: amount > 0 ? "correction_in" : "correction_out", amount,
+      transactionId: adjustmentTx.id, adminId: admin.id,
+      note: `Balance correction · ${before.ign || before.displayName} · ${reason}`,
     });
     await logAction(tx, {
       adminId: admin.id, actionType: "Balance adjustment", targetType: "user", targetId: userId,

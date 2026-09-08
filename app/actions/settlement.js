@@ -5,7 +5,7 @@ import { eq, and, ne, inArray, sql } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 import { db } from "@/lib/db";
 import {
-  races, bets, classifications, users, transactions, championships, drivers,
+  races, bets, classifications, users, transactions, championships, drivers, houseLedger,
 } from "@/lib/db/schema";
 import { requirePermission } from "@/lib/permissions";
 import { logAction } from "@/lib/audit";
@@ -175,6 +175,13 @@ export async function confirmSettlement(input) {
         fastestLapDriverId: p.fastestLapEntrantId || null,
         settledAt: new Date(),
       }).where(eq(races.id, race.id));
+
+      if (!result.voided && result.rakeAmount > 0) {
+        await tx.insert(houseLedger).values({
+          id: createId(), type: "rake", amount: result.rakeAmount,
+          raceId: race.id, adminId: admin.id, note: `Rake · ${race.name}`,
+        });
+      }
 
       await logAction(tx, {
         adminId: admin.id,
