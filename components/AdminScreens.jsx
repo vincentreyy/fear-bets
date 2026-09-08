@@ -418,6 +418,7 @@ export function AdminRaces({ S }) {
   const [rake, setRake] = useState("0");
   const [dt, setDt] = useState(Date.now() + 72 * 3600e3);
   const [lock, setLock] = useState(Date.now() + 68 * 3600e3);
+  const [gridDrivers, setGridDrivers] = useState(() => S.roster.filter(d => d.status === "active").map(d => d.id));
   const [ren, setRen] = useState(null);
   return <div>
     <h2 className="ttl-lg" style={{ marginBottom: 20 }}>Race management</h2>
@@ -464,21 +465,24 @@ export function AdminRaces({ S }) {
               <input type="checkbox" checked={champId ? v : false} disabled={!champId} onChange={e => set(e.target.checked)} style={{ accentColor: "var(--yellow)" }} />{l}</label>)}
           {!champId && <div className="cap" style={{ color: "var(--muted)", marginTop: 4 }}>Exhibition races award no points.</div>}
         </div>
-        <label className="f">GRID ({S.roster.filter(d => d.status === "active").length} SELECTED)</label>
+        <label className="f">GRID ({gridDrivers.length} SELECTED)</label>
         <div className="card-flat" style={{ background: "var(--canvas)", maxHeight: 160, overflow: "auto", padding: 10 }}>
           {S.roster.filter(d => d.status !== "retired").map(d => <label key={d.id} className="flex" style={{ gap: 10, alignItems: "center", padding: "6px 4px", fontSize: 13, cursor: "pointer" }}>
-            <input type="checkbox" defaultChecked={d.status === "active"} style={{ accentColor: "var(--yellow)" }} /><Dot d={d} size={20} />{d.n}</label>)}
+            <input type="checkbox" checked={gridDrivers.includes(d.id)}
+              onChange={e => setGridDrivers(v => e.target.checked ? [...v, d.id] : v.filter(x => x !== d.id))} style={{ accentColor: "var(--yellow)" }} />
+            <Dot d={d} size={20} />{d.n}</label>)}
         </div>
-        <button className="btn btn-y" style={{ width: "100%", marginTop: 16 }} disabled={!name.trim() || lock >= dt} onClick={() => {
+        <button className="btn btn-y" style={{ width: "100%", marginTop: 16 }} disabled={!name.trim() || lock >= dt || !gridDrivers.length} onClick={() => {
           run(createRaceAction, {
             name, circuit, championshipId: champId || null,
             countsDrivers: !!champId && cd, countsConstructors: !!champId && cc, rakePct: Number(rake) || 0,
-            raceDatetime: new Date(dt), qualifyingLock: new Date(lock),
+            raceDatetime: new Date(dt), qualifyingLock: new Date(lock), driverIds: gridDrivers,
           });
           setName("");
           setCircuit("");
           setDt(Date.now() + 72 * 3600e3);
           setLock(Date.now() + 68 * 3600e3);
+          setGridDrivers(S.roster.filter(d => d.status === "active").map(d => d.id));
         }}>Create and open betting</button>
       </div>
     </div>
