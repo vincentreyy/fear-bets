@@ -411,10 +411,13 @@ export function AdminRaces({ S }) {
   const D = useEntrantLookup();
   const run = useServerAction();
   const [name, setName] = useState("");
+  const [circuit, setCircuit] = useState("");
   const [champId, setChampId] = useState(S.championships[0]?.id || "");
   const [cd, setCd] = useState(true);
   const [cc, setCc] = useState(true);
   const [rake, setRake] = useState("0");
+  const [dt, setDt] = useState(Date.now() + 72 * 3600e3);
+  const [lock, setLock] = useState(Date.now() + 68 * 3600e3);
   const [ren, setRen] = useState(null);
   return <div>
     <h2 className="ttl-lg" style={{ marginBottom: 20 }}>Race management</h2>
@@ -439,11 +442,15 @@ export function AdminRaces({ S }) {
       <div className="card">
         <div className="ttl-sm" style={{ marginBottom: 14 }}>Create race</div>
         <div style={{ marginBottom: 12 }}><label className="f">RACE NAME</label><input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="Grapeseed Rally" /></div>
+        <div style={{ marginBottom: 12 }}><label className="f">CIRCUIT / SUBTITLE</label><input className="input" value={circuit} onChange={e => setCircuit(e.target.value)} placeholder="Harbor Street Circuit · 58 laps" /></div>
         <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
-          <div><label className="f">RACE STARTS</label><input className="input" placeholder="Sat 21:00" />
+          <div><label className="f">RACE STARTS</label>
+            <input className="input" type="datetime-local" value={dtLocal(dt)} onChange={e => setDt(new Date(e.target.value).getTime() || dt)} />
             <div className="cap" style={{ color: "var(--muted)", marginTop: 4 }}>When the race itself begins</div></div>
-          <div><label className="f">BETTING CLOSES</label><input className="input" placeholder="Sat 19:30" />
+          <div><label className="f">BETTING CLOSES</label>
+            <input className="input" type="datetime-local" value={dtLocal(lock)} onChange={e => setLock(new Date(e.target.value).getTime() || lock)} />
             <div className="cap" style={{ color: "var(--muted)", marginTop: 4 }}>Usually when qualifying is posted</div></div></div>
+        {lock >= dt && <div className="cap down" style={{ marginBottom: 12 }}>Betting must close before the race starts — set an earlier closing time.</div>}
         <div style={{ marginBottom: 12 }}><label className="f">HOUSE RAKE %</label><input className="input" value={rake} onChange={e => setRake(e.target.value.replace(/[^\d]/g, ""))} /></div>
         <label className="f">CHAMPIONSHIP</label>
         <select className="input" value={champId} onChange={e => setChampId(e.target.value)}>
@@ -462,13 +469,16 @@ export function AdminRaces({ S }) {
           {S.roster.filter(d => d.status !== "retired").map(d => <label key={d.id} className="flex" style={{ gap: 10, alignItems: "center", padding: "6px 4px", fontSize: 13, cursor: "pointer" }}>
             <input type="checkbox" defaultChecked={d.status === "active"} style={{ accentColor: "var(--yellow)" }} /><Dot d={d} size={20} />{d.n}</label>)}
         </div>
-        <button className="btn btn-y" style={{ width: "100%", marginTop: 16 }} disabled={!name.trim()} onClick={() => {
+        <button className="btn btn-y" style={{ width: "100%", marginTop: 16 }} disabled={!name.trim() || lock >= dt} onClick={() => {
           run(createRaceAction, {
-            name, championshipId: champId || null,
+            name, circuit, championshipId: champId || null,
             countsDrivers: !!champId && cd, countsConstructors: !!champId && cc, rakePct: Number(rake) || 0,
-            raceDatetime: new Date(Date.now() + 72 * 3600e3), qualifyingLock: new Date(Date.now() + 68 * 3600e3),
+            raceDatetime: new Date(dt), qualifyingLock: new Date(lock),
           });
           setName("");
+          setCircuit("");
+          setDt(Date.now() + 72 * 3600e3);
+          setLock(Date.now() + 68 * 3600e3);
         }}>Create and open betting</button>
       </div>
     </div>
