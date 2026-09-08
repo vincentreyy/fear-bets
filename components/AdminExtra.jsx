@@ -138,6 +138,7 @@ export function AdminUsers({ S }) {
       <input className="input" value={adj} onChange={e => setAdj(e.target.value.replace(/[^-\d]/g, ""))} placeholder="e.g. -3000" />
       <div style={{ marginTop: 12 }}><label className="f">REASON (REQUIRED, LOGGED)</label>
         <textarea className="input" value={reason} onChange={e => setReason(e.target.value)} placeholder="e.g. Duplicate deposit credit reversed" /></div>
+      <div className="cap" style={{ marginTop: 10, color: "var(--muted)" }}>Reminder: this also books a matching entry to the house wallet (real cash) — make sure the amount and reason are accurate.</div>
       <div className="flex" style={{ gap: 10, marginTop: 18, justifyContent: "space-between" }}>
         <div className="flex" style={{ gap: 10 }}>
           <button className="btn btn-ghost btn-sm" disabled={!reason.trim()} onClick={() => { run(toggleUserStatus, { userId: u.id, reason }); setOpen(null); }}>

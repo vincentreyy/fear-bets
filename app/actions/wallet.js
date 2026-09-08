@@ -4,9 +4,10 @@ import { z } from "zod";
 import { eq, and, sql } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 import { db } from "@/lib/db";
-import { transactions, users } from "@/lib/db/schema";
+import { transactions, users, houseLedger } from "@/lib/db/schema";
 import { requireUser, requirePermission } from "@/lib/permissions";
 import { logAction } from "@/lib/audit";
+import { money } from "@/lib/store";
 
 const requestDepositSchema = z.object({
   amount: z.number().int().positive(),
@@ -53,6 +54,11 @@ export async function approveDeposit(input) {
     await tx.update(transactions)
       .set({ status: "approved", adminId: admin.id, resolvedAt: new Date(), note: `Credited by ${admin.username}` })
       .where(eq(transactions.id, deposit.id));
+    await tx.insert(houseLedger).values({
+      id: createId(), type: "deposit", amount: deposit.amount,
+      transactionId: deposit.id, adminId: admin.id,
+      note: `Deposit approved · ${before.ign || before.displayName}`,
+    });
     await logAction(tx, {
       adminId: admin.id,
       actionType: "Deposit approved",
@@ -60,7 +66,7 @@ export async function approveDeposit(input) {
       targetId: deposit.userId,
       before: { confirmedBalance: before.confirmedBalance },
       after: { confirmedBalance: after.confirmedBalance },
-      note: "Handoff confirmed in-game",
+      note: `${money(deposit.amount)} · Handoff confirmed in-game`,
     });
     balance = after.confirmedBalance;
   });
@@ -158,7 +164,7 @@ export async function approveWithdrawal(input) {
       .where(eq(transactions.id, wd.id));
     await logAction(tx, {
       adminId: admin.id, actionType: "Withdrawal approved", targetType: "user",
-      targetId: wd.userId, note: "Cleared for in-game handoff",
+      targetId: wd.userId, note: `${money(Math.abs(wd.amount))} · Cleared for in-game handoff`,
     });
   });
 
@@ -180,12 +186,18 @@ export async function markWithdrawalPaid(input) {
     if (!wd || wd.type !== "withdrawal" || wd.status !== "approved") {
       throw new Error("This withdrawal isn't approved yet.");
     }
+    const [wdUser] = await tx.select().from(users).where(eq(users.id, wd.userId));
     await tx.update(transactions)
       .set({ status: "paid", resolvedAt: new Date(), note: parsed.data.note || wd.note })
       .where(eq(transactions.id, wd.id));
+    await tx.insert(houseLedger).values({
+      id: createId(), type: "withdrawal", amount: wd.amount,
+      transactionId: wd.id, adminId: admin.id,
+      note: `Withdrawal paid · ${wdUser.ign || wdUser.displayName}`,
+    });
     await logAction(tx, {
       adminId: admin.id, actionType: "Withdrawal paid", targetType: "user",
-      targetId: wd.userId, note: parsed.data.note || wd.destination,
+      targetId: wd.userId, note: `${money(Math.abs(wd.amount))} · ${parsed.data.note || wd.destination}`,
     });
   });
 

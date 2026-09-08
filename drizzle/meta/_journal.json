@@ -22,6 +22,20 @@
       "when": 1788804252845,
       "tag": "0002_narrow_blob",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788878986334,
+      "tag": "0003_wandering_tinkerer",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788882058387,
+      "tag": "0004_aspiring_true_believers",
+      "breakpoints": true
     }
   ]
 }
