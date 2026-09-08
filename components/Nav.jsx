@@ -28,7 +28,7 @@ export function Nav({ sessionUser, balance, adminHref }) {
   };
 
   return <div className="nav"><div className="wrap-wide flex" style={{ alignItems: "center", gap: 32, width: "100%" }}>
-    <Link href={sessionUser ? "/dashboard" : "/"} className="brand">
+    <Link href="/" className="brand">
       <div className="brand-name">FEAR <span>BETS</span></div>
       <div className="brand-by"><em>powered by</em><img src="/assets/logo-mark.png" alt="AEAR" /></div>
     </Link>

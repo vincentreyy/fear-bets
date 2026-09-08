@@ -39,7 +39,7 @@ export function LocalTime({ ts }) {
 }
 
 /* ---------- Landing ---------- */
-export function Landing({ S }) {
+export function Landing({ S, sessionUser }) {
   const D = useEntrantLookup();
   const race = raceWindow(S.races).find(r => r.status === "open") || S.races.find(r => r.status === "open");
   const pools = race ? driverPools(S.bets, race).sort((a, b) => b.pool - a.pool) : [];
@@ -57,7 +57,7 @@ export function Landing({ S }) {
           Parimutuel racing betting for the Executive FiveM roleplay server, created and managed by FEAR. Back a driver to finish P1, and winners split the entire race pool proportional to their stake. No bookmaker, no set odds, no house exposure.
         </p>
         <div className="flex" style={{ gap: 12, marginTop: 32 }}>
-          <Link href="/login" className="btn btn-y btn-pill">Log in</Link>
+          <Link href={sessionUser ? "/wallet" : "/login"} className="btn btn-y btn-pill">{sessionUser ? "Wallet" : "Log in"}</Link>
           <Link href="/races" className="btn btn-2 btn-pill">View live pools</Link>
         </div>
         <div className="flex" style={{ gap: 48, marginTop: 56 }}>
@@ -98,7 +98,7 @@ export function Landing({ S }) {
     <div className="wrap"><div className="card" style={{ padding: 48, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 32 }}>
       <div><h2 style={{ fontSize: 32, letterSpacing: "-.3px" }}>Four steps from top-up to cash-out</h2>
         <div className="muted2" style={{ marginTop: 10 }}>An admin creates your account and sends a temporary password. Then: deposit → bet → the race settles and your payout queues itself for release → request a withdrawal when you want it in hand.</div></div>
-      <Link href="/login" className="btn btn-y">Log in</Link>
+      <Link href={sessionUser ? "/wallet" : "/login"} className="btn btn-y">{sessionUser ? "Wallet" : "Log in"}</Link>
     </div></div>
     <div className="footer"><div className="wrap">
       <div className="brand brand-foot">
@@ -261,6 +261,28 @@ export function RacesIndex({ S }) {
   </div>;
 }
 
+/* ---------- Championships index ---------- */
+export function ChampionshipsIndex({ S }) {
+  const router = useRouter();
+  const list = seasonWindow(S.races);
+  return <div className="wrap-wide" style={{ padding: "32px 24px 80px" }}>
+    <h2 className="ttl-lg" style={{ marginBottom: 20 }}>Championships</h2>
+    {list.length ? <div className="card">
+      <div className="tblwrap"><table>
+        <thead><tr><th>Market</th><th style={{ textAlign: "right" }}>Total pool</th><th style={{ textAlign: "right" }}>Status</th></tr></thead>
+        <tbody>{list.map(r => <tr key={r.id} className="rowhov" style={{ cursor: "pointer" }} onClick={() => router.push(`/championship/${r.id}`)}>
+          <td><div style={{ fontWeight: 500 }}>{r.name}</div><div className="cap">{r.circuit}</div></td>
+          <td className="num" style={{ textAlign: "right" }}>{fmt(poolOf(S.bets, r.id))}</td>
+          <td style={{ textAlign: "right" }}><Badge s={r.status} /></td>
+        </tr>)}</tbody>
+      </table></div>
+    </div> : <div className="card" style={{ padding: 48, textAlign: "center" }}>
+      <div className="ttl-sm" style={{ marginBottom: 6 }}>No championship markets yet</div>
+      <div className="muted2" style={{ fontSize: 13 }}>Check back once an admin creates a championship.</div>
+    </div>}
+  </div>;
+}
+
 /* ---------- Race betting page ---------- */
 export function RacePage({ S, race, siblings, basePath, sessionUser }) {
   const D = useEntrantLookup();
@@ -286,8 +308,8 @@ export function RacePage({ S, race, siblings, basePath, sessionUser }) {
               <div className="cap" style={{ marginTop: 6 }}>{race.circuit} · {season ? "Title decided at the final round" : "Race starts " + when(race.dt)}</div></div>
             <div style={{ textAlign: "right" }}>
               <div className="cap">{race.status === "open" ? (season ? "MARKET CLOSES BEFORE FINAL ROUND" : "BETTING CLOSES IN") : "BETTING CLOSED"}</div>
-              <div className="num" style={{ fontSize: 24, fontWeight: 600, color: canBet ? "var(--yellow)" : "var(--muted)" }}>
-                {canBet ? (season ? <Countdown to={race.lock} /> : <Countdown to={race.lock} />) : race.status === "settled" ? "Settled" : "At qualifying"}</div></div>
+              <div className="num" style={{ fontSize: season && canBet ? 15 : 24, fontWeight: 600, color: canBet ? "var(--yellow)" : "var(--muted)" }}>
+                {canBet ? (season ? "Locks with the final round" : <Countdown to={race.lock} />) : race.status === "settled" ? "Settled" : "At qualifying"}</div></div>
           </div>
           <div className="flex" style={{ gap: 40, marginTop: 20, paddingTop: 20, borderTop: "1px solid var(--hair)" }}>
             <div><div className="cap">TOTAL POOL</div><div className="num yel" style={{ fontSize: 20, fontWeight: 600 }}>{money(total)}</div></div>
