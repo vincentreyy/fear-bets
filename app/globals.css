@@ -81,6 +81,9 @@ td .cap{white-space:nowrap}
 label.f{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
 select.input{appearance:none;cursor:pointer}
 textarea.input{height:auto;min-height:80px;resize:vertical}
+input.input[type="datetime-local"]{color-scheme:dark;padding-right:8px}
+input.input[type="datetime-local"]::-webkit-calendar-picker-indicator{opacity:.7;cursor:pointer}
+input.input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover{opacity:1}
 /* misc */
 .grid{display:grid;gap:24px}
 .flex{display:flex}
