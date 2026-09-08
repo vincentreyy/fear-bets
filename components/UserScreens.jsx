@@ -192,7 +192,7 @@ export function Dashboard({ S, sessionUser }) {
         <div className="flex" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div className="ttl-sm">Race calendar</div><div className="cap">Times shown in your local timezone</div></div>
         <div className="tblwrap"><table><thead><tr><th>Race</th><th>Starts</th><th style={{ textAlign: "right" }}>Total pool</th><th style={{ textAlign: "right" }}>Status</th><th></th></tr></thead>
-          <tbody>{raceWindow(S.races).map(r => <tr key={r.id} className="rowhov">
+          <tbody>{raceWindow(S.races).slice().sort((a, b) => b.dt - a.dt).map(r => <tr key={r.id} className="rowhov">
             <td><div style={{ fontWeight: 500 }}>{r.name}</div><div className="cap">{r.circuit}</div></td>
             <td className="num muted2" style={{ fontSize: 13 }}><LocalTime ts={r.dt} /></td>
             <td className="num" style={{ textAlign: "right" }}>{fmt(poolOf(S.bets, r.id))}</td>
@@ -238,11 +238,33 @@ export function Dashboard({ S, sessionUser }) {
   </div>;
 }
 
+/* ---------- Races index ---------- */
+export function RacesIndex({ S }) {
+  const router = useRouter();
+  const list = raceWindow(S.races).slice().sort((a, b) => b.dt - a.dt);
+  return <div className="wrap-wide" style={{ padding: "32px 24px 80px" }}>
+    <h2 className="ttl-lg" style={{ marginBottom: 20 }}>Races</h2>
+    {list.length ? <div className="card">
+      <div className="tblwrap"><table>
+        <thead><tr><th>Race</th><th>Starts</th><th style={{ textAlign: "right" }}>Total pool</th><th style={{ textAlign: "right" }}>Status</th></tr></thead>
+        <tbody>{list.map(r => <tr key={r.id} className="rowhov" style={{ cursor: "pointer" }} onClick={() => router.push(`/races/${r.id}`)}>
+          <td><div style={{ fontWeight: 500 }}>{r.name}</div><div className="cap">{r.circuit}</div></td>
+          <td className="num muted2" style={{ fontSize: 13 }}><LocalTime ts={r.dt} /></td>
+          <td className="num" style={{ textAlign: "right" }}>{fmt(poolOf(S.bets, r.id))}</td>
+          <td style={{ textAlign: "right" }}><Badge s={r.status} /></td>
+        </tr>)}</tbody>
+      </table></div>
+    </div> : <div className="card" style={{ padding: 48, textAlign: "center" }}>
+      <div className="ttl-sm" style={{ marginBottom: 6 }}>No races yet</div>
+      <div className="muted2" style={{ fontSize: 13 }}>Check back once an admin creates one.</div>
+    </div>}
+  </div>;
+}
+
 /* ---------- Race betting page ---------- */
 export function RacePage({ S, race, siblings, basePath, sessionUser }) {
   const D = useEntrantLookup();
   const run = useServerAction();
-  const list = siblings;
   const season = race.kind === "season";
   const [sel, setSel] = useState(null);
   const [stake, setStake] = useState("");
@@ -256,9 +278,6 @@ export function RacePage({ S, race, siblings, basePath, sessionUser }) {
   useEffect(() => { setSel(null); setStake(""); }, [race.id]);
 
   return <div className="wrap-wide" style={{ padding: "24px 24px 80px" }}>
-    <div className="flex" style={{ gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
-      {list.map(r => <Link key={r.id} href={`${basePath}/${r.id}`} className={"pill-tab" + (r.id === race.id ? " on" : "")}>{r.name}</Link>)}
-    </div>
     <div className="grid g2" style={{ gridTemplateColumns: "1fr 360px", alignItems: "start" }}>
       <div>
         <div className="card" style={{ marginBottom: 24, padding: "20px 24px" }}>
