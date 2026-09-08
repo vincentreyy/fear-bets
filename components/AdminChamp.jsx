@@ -5,7 +5,7 @@ import { useServerAction } from "@/lib/useServerAction";
 import { money, poolOf, raceWindow } from "@/lib/store";
 import {
   createChampionship, toggleRaceCounts, toggleRound as toggleRoundAction, setMarketEntrants,
-  setPointsScale, savePointsPreset, deletePointsPreset, renameChampionship,
+  setPointsScale, savePointsPreset, deletePointsPreset, renameChampionship, setChampionshipRake,
 } from "@/app/actions/championships";
 
 // A market's grid is seeded once at championship creation from the roster
@@ -38,7 +38,9 @@ export function AdminChampionships({ S }) {
   const [tab, setTab] = useState("rounds");
   const [nName, setNName] = useState("");
   const [nRounds, setNRounds] = useState("14");
+  const [nRake, setNRake] = useState("0");
   const [ren, setRen] = useState(null);
+  const [rakeEdit, setRakeEdit] = useState(null);
   const [pName, setPName] = useState("");
   const [pRows, setPRows] = useState([25, 18, 15, 12, 10, 8, 6, 4, 2, 1]);
   const [pFl, setPFl] = useState(1);
@@ -58,11 +60,13 @@ export function AdminChampionships({ S }) {
           <input className="input" value={nName} onChange={e => setNName(e.target.value)} placeholder="Season 5" /></div>
         <div style={{ marginBottom: 12 }}><label className="f">SCHEDULED ROUNDS</label>
           <input className="input" value={nRounds} onChange={e => setNRounds(e.target.value.replace(/[^\d]/g, ""))} /></div>
+        <div style={{ marginBottom: 12 }}><label className="f">HOUSE RAKE %</label>
+          <input className="input" value={nRake} onChange={e => setNRake(e.target.value.replace(/[^\d]/g, ""))} /></div>
         <div className="card-flat" style={{ background: "var(--elev)", padding: "12px 14px", marginBottom: 14 }}>
           <div className="cap" style={{ marginBottom: 6 }}>CREATES</div>
           <div style={{ fontSize: 13, color: "var(--muted-2)" }}>Drivers' and Constructors' outright markets, seeded with the current roster. Both open for betting immediately and close before the final round.</div></div>
         <button className="btn btn-y" style={{ width: "100%" }} disabled={!nName.trim() || !Number(nRounds)}
-          onClick={() => { run(createChampionship, { name: nName, rounds: Number(nRounds) }); setNName(""); }}>Create championship</button>
+          onClick={() => { run(createChampionship, { name: nName, rounds: Number(nRounds), rakePct: Number(nRake) || 0 }); setNName(""); }}>Create championship</button>
       </div>
     </div>;
   }
@@ -74,13 +78,15 @@ export function AdminChampionships({ S }) {
       <div className="flex" style={{ gap: 6 }}>
         {S.championships.map(x => <button key={x.id} className={"pill-tab" + (x.id === cid ? " on" : "")} onClick={() => setCid(x.id)}>{x.name}</button>)}
         <button className="btn btn-ghost btn-xs" onClick={() => setRen(ch.name)}>Rename</button>
+        <button className="btn btn-ghost btn-xs" onClick={() => setRakeEdit(String(driversMarketRace?.rake || 0))}>Edit rake</button>
       </div>
     </div>
 
-    <div className="grid g4" style={{ gridTemplateColumns: "repeat(3,1fr)", marginBottom: 24 }}>
+    <div className="grid g4" style={{ gridTemplateColumns: "repeat(4,1fr)", marginBottom: 24 }}>
       <div className="card"><Stat label="ROUNDS COUNTING" value={rounds.length + " / " + ch.rounds} sub={rounds.filter(r => r.status === "settled").length + " settled"} /></div>
       <div className="card"><Stat label="POINTS SYSTEM" value={ch.points.slice(0, 3).join("–") + "…"} sub={"P1–P" + ch.points.length + (ch.fl ? " + " + ch.fl + " fastest lap" : "")} /></div>
       <div className="card"><Stat label="OUTRIGHT POOLS" value={money(poolOf(S.bets, ch.driversMarket) + poolOf(S.bets, ch.constructorsMarket))} sub="Drivers + constructors" color="var(--up)" /></div>
+      <div className="card"><Stat label="HOUSE RAKE" value={(driversMarketRace?.rake || 0) + "%"} sub="Both outright markets" /></div>
     </div>
 
     <div className="flex" style={{ gap: 6, marginBottom: 16 }}>
@@ -113,11 +119,13 @@ export function AdminChampionships({ S }) {
           <input className="input" value={nName} onChange={e => setNName(e.target.value)} placeholder="Season 5" /></div>
         <div style={{ marginBottom: 12 }}><label className="f">SCHEDULED ROUNDS</label>
           <input className="input" value={nRounds} onChange={e => setNRounds(e.target.value.replace(/[^\d]/g, ""))} /></div>
+        <div style={{ marginBottom: 12 }}><label className="f">HOUSE RAKE %</label>
+          <input className="input" value={nRake} onChange={e => setNRake(e.target.value.replace(/[^\d]/g, ""))} /></div>
         <div className="card-flat" style={{ background: "var(--elev)", padding: "12px 14px", marginBottom: 14 }}>
           <div className="cap" style={{ marginBottom: 6 }}>CREATES</div>
           <div style={{ fontSize: 13, color: "var(--muted-2)" }}>Drivers' and Constructors' outright markets, seeded with the current roster. Both open for betting immediately and close before the final round.</div></div>
         <button className="btn btn-y" style={{ width: "100%" }} disabled={!nName.trim() || !Number(nRounds)}
-          onClick={() => { run(createChampionship, { name: nName, rounds: Number(nRounds) }); setNName(""); }}>Create championship</button>
+          onClick={() => { run(createChampionship, { name: nName, rounds: Number(nRounds), rakePct: Number(nRake) || 0 }); setNName(""); }}>Create championship</button>
       </div>
     </div>}
 
@@ -214,6 +222,16 @@ export function AdminChampionships({ S }) {
       <div className="flex" style={{ gap: 10, marginTop: 18, justifyContent: "flex-end" }}>
         <button className="btn btn-2 btn-sm" onClick={() => setRen(null)}>Cancel</button>
         <button className="btn btn-y btn-sm" disabled={!ren.trim()} onClick={() => { run(renameChampionship, { id: ch.id, name: ren.trim() }); setRen(null); }}>Save name</button></div>
+    </div></div>}
+
+    {rakeEdit !== null && <div className="modal-bg" onClick={() => setRakeEdit(null)}><div className="modal" onClick={e => e.stopPropagation()}>
+      <h3 className="ttl-md">Edit rake</h3>
+      <div className="muted2" style={{ fontSize: 13, margin: "8px 0 18px" }}>Applies to both the drivers' and constructors' outright markets. Existing bets and standings are untouched.</div>
+      <label className="f">HOUSE RAKE %</label>
+      <input className="input" value={rakeEdit} onChange={e => setRakeEdit(e.target.value.replace(/[^\d]/g, ""))} />
+      <div className="flex" style={{ gap: 10, marginTop: 18, justifyContent: "flex-end" }}>
+        <button className="btn btn-2 btn-sm" onClick={() => setRakeEdit(null)}>Cancel</button>
+        <button className="btn btn-y btn-sm" onClick={() => { run(setChampionshipRake, { championshipId: ch.id, rakePct: Number(rakeEdit) || 0 }); setRakeEdit(null); }}>Save rake</button></div>
     </div></div>}
 
     {tab === "standings" && <div className="grid g2" style={{ gridTemplateColumns: "1fr 1fr", alignItems: "start" }}>

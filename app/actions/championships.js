@@ -14,6 +14,7 @@ import { POINTS, FL_POINT } from "@/lib/store";
 const createChampionshipSchema = z.object({
   name: z.string().trim().min(1),
   rounds: z.number().int().positive(),
+  rakePct: z.number().int().min(0).max(100).default(0),
 });
 
 // Creates the championship plus its two outright "races" (drivers and
@@ -23,7 +24,7 @@ export async function createChampionship(input) {
   const admin = await requirePermission("manage_championships");
   const parsed = createChampionshipSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid championship." };
-  const { name, rounds } = parsed.data;
+  const { name, rounds, rakePct } = parsed.data;
 
   const championshipId = createId();
   const driversRaceId = createId();
@@ -39,11 +40,11 @@ export async function createChampionship(input) {
     await tx.insert(races).values([
       {
         id: driversRaceId, kind: "season", market: "drivers", name: `${name} Drivers' Championship`,
-        circuit, raceDatetime, qualifyingLock, status: "open", rakePct: 0,
+        circuit, raceDatetime, qualifyingLock, status: "open", rakePct,
       },
       {
         id: constructorsRaceId, kind: "season", market: "constructors", name: `${name} Constructors' Championship`,
-        circuit, raceDatetime, qualifyingLock, status: "open", rakePct: 0,
+        circuit, raceDatetime, qualifyingLock, status: "open", rakePct,
       },
     ]);
     if (activeDrivers.length) {
@@ -109,6 +110,40 @@ export async function setMarketEntrants(input) {
     await logAction(tx, {
       adminId: admin.id, actionType: "Market entrants updated", targetType: "race", targetId: raceId,
       note: `${added.length} added, ${removed.length} removed`,
+    });
+    return { ok: true };
+  });
+}
+
+const setChampionshipRakeSchema = z.object({
+  championshipId: z.string().min(1),
+  rakePct: z.number().int().min(0).max(100),
+});
+
+// A championship's rake is one shared value applied to both its outright
+// markets (drivers and constructors), same as renameChampionship treats
+// them as one unit for the title. Blocked once either market has settled,
+// mirroring editRace's guard on individual races.
+export async function setChampionshipRake(input) {
+  const admin = await requirePermission("manage_championships");
+  const parsed = setChampionshipRakeSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid rake." };
+  const { championshipId, rakePct } = parsed.data;
+
+  return await db.transaction(async (tx) => {
+    const [champ] = await tx.select().from(championships).where(eq(championships.id, championshipId));
+    if (!champ) throw new Error("Championship not found.");
+
+    const marketIds = [champ.driversMarketId, champ.constructorsMarketId].filter(Boolean);
+    const marketRaces = await tx.select().from(races).where(inArray(races.id, marketIds));
+    if (marketRaces.some(r => r.status === "settled")) {
+      return { ok: false, error: "A settled market's rake can't be changed." };
+    }
+
+    await tx.update(races).set({ rakePct }).where(inArray(races.id, marketIds));
+    await logAction(tx, {
+      adminId: admin.id, actionType: "Championship rake changed", targetType: "championship", targetId: championshipId,
+      note: `${champ.name} · rake → ${rakePct}% · applies to both outright markets`,
     });
     return { ok: true };
   });
