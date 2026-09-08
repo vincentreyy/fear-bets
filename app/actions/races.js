@@ -1,10 +1,10 @@
 "use server";
 
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 import { db } from "@/lib/db";
-import { races, raceEntrants, drivers } from "@/lib/db/schema";
+import { races, raceEntrants, drivers, championships } from "@/lib/db/schema";
 import { requirePermission } from "@/lib/permissions";
 import { logAction } from "@/lib/audit";
 
@@ -134,6 +134,33 @@ export async function editRace(input) {
       after: { name: p.name, status: p.status, rakePct: p.rakePct },
       note: diffs.length ? diffs.join(" · ") : "No field changes",
     });
+
+    // Locking the last race of a championship's grid (by start time — round
+    // numbers are just an insertion-order counter, not a chronological
+    // marker) also locks that championship's own drivers/constructors
+    // outright markets, so bettors can't keep betting on the title after the
+    // final round's grid is already known.
+    if (before.status !== "locked" && p.status === "locked" && p.championshipId) {
+      const siblings = await tx.select({ id: races.id, dt: races.raceDatetime })
+        .from(races).where(and(eq(races.championshipId, p.championshipId), eq(races.kind, "race")));
+      const isLast = siblings.every(s => s.id === p.id || s.dt <= p.raceDatetime);
+
+      if (isLast) {
+        const [champ] = await tx.select().from(championships).where(eq(championships.id, p.championshipId));
+        const marketIds = [champ?.driversMarketId, champ?.constructorsMarketId].filter(Boolean);
+        if (marketIds.length) {
+          const locked = await tx.update(races).set({ status: "locked" })
+            .where(and(inArray(races.id, marketIds), eq(races.status, "open")))
+            .returning({ id: races.id });
+          if (locked.length) {
+            await logAction(tx, {
+              adminId: admin.id, actionType: "Championship markets locked", targetType: "championship", targetId: p.championshipId,
+              note: `${champ.name} · locked automatically — "${p.name}" was the final round to lock`,
+            });
+          }
+        }
+      }
+    }
   });
 
   return { ok: true };
