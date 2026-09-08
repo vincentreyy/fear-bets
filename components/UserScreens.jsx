@@ -62,7 +62,6 @@ export function Landing({ S }) {
         </div>
         <div className="flex" style={{ gap: 48, marginTop: 56 }}>
           <div><div className="big yel num">{fmt(total)}</div><div className="cap">CR in the current race pool</div></div>
-          <div><div className="big yel num">0%</div><div className="cap">Default house rake</div></div>
           <div><div className="big yel num">{S.roster.length}</div><div className="cap">Drivers on the grid</div></div>
         </div>
       </div>
@@ -437,10 +436,21 @@ export function Wallet({ S, sessionUser }) {
                   <span className={"badge " + (x.status === "approved" ? "b-lock" : "b-pend")}>{x.status}</span></span></div>)}
           </div>}
         </>}
+        <div className="card-flat" style={{ background: "var(--elev)", marginTop: 16, padding: "14px 16px" }}>
+          <div className="cap" style={{ marginBottom: 8 }}>CONTACT FOR HANDOFF</div>
+          {CONTACTS.map(c => <div key={c.number} className="flex" style={{ justifyContent: "space-between", padding: "5px 0", fontSize: 13 }}>
+            <span className="muted2">{c.name}</span><span className="num">{c.number}</span>
+          </div>)}
+        </div>
       </div>
     </div>
   </div>;
 }
+const CONTACTS = [
+  { name: "Grizelle Nymera", number: "47493198" },
+  { name: "Zoraya Yuvika", number: "62966544" },
+  { name: "Raiden Dragneel", number: "91718956" },
+];
 
 /* ---------- My bets ---------- */
 export function MyBets({ S }) {
