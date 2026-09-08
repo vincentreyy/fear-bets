@@ -2,20 +2,23 @@
 import { useState } from "react";
 import { Dot } from "./UserScreens";
 import { useServerAction } from "@/lib/useServerAction";
-import { addDriver, editDriver, toggleDriverStatus, addTeam, toggleTeamStatus } from "@/app/actions/roster";
+import { addDriver, editDriver, toggleDriverStatus, addTeam, editTeam, toggleTeamStatus } from "@/app/actions/roster";
 
-const SWATCHES = ["#4b9cd3", "#e0783c", "#8f6fd6", "#2dbdb6", "#c94f6d", "#d4a72c", "#5b8c5a", "#b0563f"];
 const initials = n => n.trim().split(/\s+/).map(w => w[0]).join("").slice(0, 3).toUpperCase() || "—";
+const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 
 export function AdminRoster({ S }) {
   const run = useServerAction();
   const [tab, setTab] = useState("drivers");
   const [edit, setEdit] = useState(null);
+  const [teamEdit, setTeamEdit] = useState(null);
   const [dForm, setDForm] = useState({ n: "", team: "", ab: "", status: "active" });
-  const [tForm, setTForm] = useState({ n: "", ab: "", c: SWATCHES[0] });
+  const [tForm, setTForm] = useState({ n: "", ab: "", c: "#4b9cd3" });
   const active = S.roster.filter(d => d.status === "active");
   const startEdit = d => { setEdit(d.id); setDForm({ n: d.n, team: d.t, ab: d.ab, status: d.status }); setTab("drivers"); };
   const reset = () => { setEdit(null); setDForm({ n: "", team: "", ab: "", status: "active" }); };
+  const startEditTeam = t => { setTeamEdit(t.id); setTForm({ n: t.n, ab: t.ab, c: t.c }); setTab("teams"); };
+  const resetTeam = () => { setTeamEdit(null); setTForm({ n: "", ab: "", c: "#4b9cd3" }); };
 
   return <div>
     <div className="hdr" style={{ marginBottom: 20 }}>
@@ -88,32 +91,44 @@ export function AdminRoster({ S }) {
             return <tr key={t.id} className="rowhov">
               <td><Dot d={t} size={26} /></td>
               <td><div style={{ fontWeight: 500 }}>{t.n}</div><div className="cap">{t.ab}</div></td>
-              <td className="muted2">{ds.length ? ds.map(d => d.n).join(" · ") : <span className="muted">No drivers assigned</span>}</td>
+              <td className="muted2 wrapcell">{ds.length ? ds.map(d => <div key={d.id}>{d.n}</div>) : <span className="muted">No drivers assigned</span>}</td>
               <td className="num" style={{ textAlign: "right" }}>{t.pts}</td>
               <td style={{ textAlign: "right" }}><span className={"badge " + (t.status === "active" ? "b-open" : "b-set")}>{t.status}</span></td>
-              <td style={{ textAlign: "right" }}><button className="btn btn-ghost btn-xs" onClick={() => run(toggleTeamStatus, { id: t.id })}>{t.status === "active" ? "Withdraw" : "Reinstate"}</button></td>
+              <td style={{ textAlign: "right" }}><div className="flex" style={{ gap: 8, justifyContent: "flex-end" }}>
+                <button className="btn btn-ghost btn-xs" onClick={() => startEditTeam(t)}>Edit</button>
+                <button className="btn btn-ghost btn-xs" onClick={() => run(toggleTeamStatus, { id: t.id })}>{t.status === "active" ? "Withdraw" : "Reinstate"}</button>
+              </div></td>
             </tr>; })}</tbody>
         </table></div>
         <div className="cap" style={{ marginTop: 14, color: "var(--muted)" }}>Withdrawing a team keeps its historical results and settled bets intact — it only drops out of new constructor markets.</div>
       </div>
       <div className="card">
-        <div className="ttl-sm" style={{ marginBottom: 4 }}>Add team</div>
-        <div className="cap" style={{ marginBottom: 16 }}>Teams become selectable entrants in the Constructors' Championship.</div>
+        <div className="ttl-sm" style={{ marginBottom: 4 }}>{teamEdit ? "Edit team" : "Add team"}</div>
+        <div className="cap" style={{ marginBottom: 16 }}>{teamEdit ? "Renaming a team updates every market and driver it appears on." : "Teams become selectable entrants in the Constructors' Championship."}</div>
         <div style={{ marginBottom: 12 }}><label className="f">TEAM NAME</label>
           <input className="input" value={tForm.n} placeholder="Cassius Autosport" onChange={e => setTForm(f => ({ ...f, n: e.target.value }))} /></div>
         <div style={{ marginBottom: 12 }}><label className="f">CODE</label>
           <input className="input" maxLength="3" value={tForm.ab} placeholder={initials(tForm.n)} onChange={e => setTForm(f => ({ ...f, ab: e.target.value.toUpperCase() }))} /></div>
         <label className="f">LIVERY COLOUR</label>
-        <div className="flex" style={{ gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
-          {SWATCHES.map(c => <button key={c} onClick={() => setTForm(f => ({ ...f, c }))} style={{ width: 30, height: 30, borderRadius: 8, background: c, cursor: "pointer", border: tForm.c === c ? "2px solid var(--yellow)" : "2px solid transparent" }} />)}
+        <div className="flex" style={{ gap: 8, marginBottom: 16 }}>
+          <input type="color" value={HEX_RE.test(tForm.c) ? tForm.c : "#000000"}
+            onChange={e => setTForm(f => ({ ...f, c: e.target.value }))}
+            style={{ width: 40, height: 40, padding: 0, border: "1px solid var(--hair)", borderRadius: 8, background: "none", cursor: "pointer" }} />
+          <input className="input" value={tForm.c} placeholder="#4b9cd3"
+            onChange={e => setTForm(f => ({ ...f, c: e.target.value }))} style={{ flex: 1 }} />
         </div>
         {tForm.n && <div className="card-flat" style={{ background: "var(--elev)", padding: 14, marginBottom: 16 }}>
           <div className="cap" style={{ marginBottom: 8 }}>PREVIEW</div>
           <div className="flex" style={{ gap: 10, alignItems: "center" }}>
             <Dot d={{ ab: tForm.ab || initials(tForm.n), c: tForm.c }} />
             <div style={{ fontWeight: 500 }}>{tForm.n}</div></div></div>}
-        <button className="btn btn-y" style={{ width: "100%" }} disabled={!tForm.n.trim()}
-          onClick={() => { run(addTeam, { name: tForm.n, abbr: tForm.ab || initials(tForm.n), color: tForm.c }); setTForm({ n: "", ab: "", c: SWATCHES[0] }); }}>Add team</button>
+        <button className="btn btn-y" style={{ width: "100%" }} disabled={!tForm.n.trim() || !HEX_RE.test(tForm.c)}
+          onClick={() => {
+            const args = { name: tForm.n, abbr: tForm.ab || initials(tForm.n), color: tForm.c };
+            run(teamEdit ? editTeam : addTeam, teamEdit ? { ...args, id: teamEdit } : args);
+            resetTeam();
+          }}>{teamEdit ? "Save changes" : "Add team"}</button>
+        {teamEdit && <button className="btn btn-t btn-sm" style={{ width: "100%", marginTop: 6 }} onClick={resetTeam}>Cancel</button>}
       </div>
     </div>}
   </div>;
