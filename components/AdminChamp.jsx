@@ -33,8 +33,8 @@ function MarketEntrantsEditor({ title, raceId, currentIds, candidates }) {
 
 export function AdminChampionships({ S }) {
   const run = useServerAction();
-  const [cid, setCid] = useState(S.championships[0]?.id || null);
-  const ch = S.championships.find(c => c.id === cid) || S.championships[0];
+  const [cid, setCid] = useState(null);
+  const ch = cid ? S.championships.find(c => c.id === cid) : null;
   const [tab, setTab] = useState("rounds");
   const [nName, setNName] = useState("");
   const [nRounds, setNRounds] = useState("14");
@@ -54,29 +54,47 @@ export function AdminChampionships({ S }) {
         <div><h2 className="ttl-lg">Championships</h2>
           <div className="muted" style={{ fontSize: 13 }}>A championship owns its rounds and its points system. Outright betting markets attach to it.</div></div>
       </div>
-      <div className="card" style={{ maxWidth: 420 }}>
-        <div className="ttl-sm" style={{ marginBottom: 14 }}>Create championship</div>
-        <div style={{ marginBottom: 12 }}><label className="f">NAME</label>
-          <input className="input" value={nName} onChange={e => setNName(e.target.value)} placeholder="Season 5" /></div>
-        <div style={{ marginBottom: 12 }}><label className="f">SCHEDULED ROUNDS</label>
-          <input className="input" value={nRounds} onChange={e => setNRounds(e.target.value.replace(/[^\d]/g, ""))} /></div>
-        <div style={{ marginBottom: 12 }}><label className="f">HOUSE RAKE %</label>
-          <input className="input" value={nRake} onChange={e => setNRake(e.target.value.replace(/[^\d]/g, ""))} /></div>
-        <div className="card-flat" style={{ background: "var(--elev)", padding: "12px 14px", marginBottom: 14 }}>
-          <div className="cap" style={{ marginBottom: 6 }}>CREATES</div>
-          <div style={{ fontSize: 13, color: "var(--muted-2)" }}>Drivers' and Constructors' outright markets, seeded with the current roster. Both open for betting immediately and close before the final round.</div></div>
-        <button className="btn btn-y" style={{ width: "100%" }} disabled={!nName.trim() || !Number(nRounds)}
-          onClick={() => { run(createChampionship, { name: nName, rounds: Number(nRounds), rakePct: Number(nRake) || 0 }); setNName(""); }}>Create championship</button>
+      <div className="grid g2" style={{ gridTemplateColumns: "1fr 360px", alignItems: "start" }}>
+        <div className="card">
+          <div className="ttl-sm" style={{ marginBottom: 14 }}>All championships</div>
+          {S.championships.length ? <div className="tblwrap"><table>
+            <thead><tr><th>Name</th><th>Rounds</th><th style={{ textAlign: "right" }}>House rake</th><th style={{ textAlign: "right" }}>Outright pool</th></tr></thead>
+            <tbody>{S.championships.map(c => {
+              const roundCount = raceWindow(S.races).filter(r => r.champId === c.id).length;
+              const rake = S.races.find(r => r.id === c.driversMarket)?.rake || 0;
+              const pool = poolOf(S.bets, c.driversMarket) + poolOf(S.bets, c.constructorsMarket);
+              return <tr key={c.id} className="rowhov" style={{ cursor: "pointer" }} onClick={() => setCid(c.id)}>
+                <td style={{ fontWeight: 500 }}>{c.name}</td>
+                <td className="muted2">{roundCount} / {c.rounds}</td>
+                <td className="num" style={{ textAlign: "right" }}>{rake}%</td>
+                <td className="num" style={{ textAlign: "right" }}>{money(pool)}</td>
+              </tr>; })}</tbody>
+          </table></div> : <div className="muted" style={{ padding: "28px 0", textAlign: "center", fontSize: 13 }}>No championships yet.</div>}
+        </div>
+        <div className="card">
+          <div className="ttl-sm" style={{ marginBottom: 14 }}>Create championship</div>
+          <div style={{ marginBottom: 12 }}><label className="f">NAME</label>
+            <input className="input" value={nName} onChange={e => setNName(e.target.value)} placeholder="Season 5" /></div>
+          <div style={{ marginBottom: 12 }}><label className="f">SCHEDULED ROUNDS</label>
+            <input className="input" value={nRounds} onChange={e => setNRounds(e.target.value.replace(/[^\d]/g, ""))} /></div>
+          <div style={{ marginBottom: 12 }}><label className="f">HOUSE RAKE %</label>
+            <input className="input" value={nRake} onChange={e => setNRake(e.target.value.replace(/[^\d]/g, ""))} /></div>
+          <div className="card-flat" style={{ background: "var(--elev)", padding: "12px 14px", marginBottom: 14 }}>
+            <div className="cap" style={{ marginBottom: 6 }}>CREATES</div>
+            <div style={{ fontSize: 13, color: "var(--muted-2)" }}>Drivers' and Constructors' outright markets, seeded with the current roster. Both open for betting immediately and close before the final round.</div></div>
+          <button className="btn btn-y" style={{ width: "100%" }} disabled={!nName.trim() || !Number(nRounds)}
+            onClick={() => { run(createChampionship, { name: nName, rounds: Number(nRounds), rakePct: Number(nRake) || 0 }); setNName(""); }}>Create championship</button>
+        </div>
       </div>
     </div>;
   }
 
   return <div>
     <div className="hdr" style={{ marginBottom: 20 }}>
-      <div><h2 className="ttl-lg">Championships</h2>
+      <div><h2 className="ttl-lg">{ch.name}</h2>
         <div className="muted" style={{ fontSize: 13 }}>A championship owns its rounds and its points system. Outright betting markets attach to it.</div></div>
       <div className="flex" style={{ gap: 6 }}>
-        {S.championships.map(x => <button key={x.id} className={"pill-tab" + (x.id === cid ? " on" : "")} onClick={() => setCid(x.id)}>{x.name}</button>)}
+        <button className="btn btn-ghost btn-xs" onClick={() => setCid(null)}>← All championships</button>
         <button className="btn btn-ghost btn-xs" onClick={() => setRen(ch.name)}>Rename</button>
         <button className="btn btn-ghost btn-xs" onClick={() => setRakeEdit(String(driversMarketRace?.rake || 0))}>Edit rake</button>
       </div>
@@ -94,8 +112,7 @@ export function AdminChampionships({ S }) {
         <button key={k} className={"pill-tab" + (tab === k ? " on" : "")} onClick={() => setTab(k)}>{l}</button>)}
     </div>
 
-    {tab === "rounds" && <div className="grid g2" style={{ gridTemplateColumns: "1fr 360px", alignItems: "start" }}>
-      <div className="card">
+    {tab === "rounds" && <div className="card">
         <div className="ttl-sm" style={{ marginBottom: 4 }}>Rounds in {ch.name}</div>
         <div className="cap" style={{ marginBottom: 14 }}>A race can count toward the drivers' title, the constructors' title, both, or neither — one-off exhibition races award no points.</div>
         <div className="tblwrap"><table>
@@ -112,22 +129,7 @@ export function AdminChampionships({ S }) {
               <td style={{ textAlign: "right" }}><button className="btn btn-ghost btn-xs" onClick={() => run(toggleRoundAction, { raceId: r.id, championshipId: ch.id })}>{inCh ? "Remove" : "Add to season"}</button></td>
             </tr>; })}</tbody>
         </table></div>
-      </div>
-      <div className="card">
-        <div className="ttl-sm" style={{ marginBottom: 14 }}>Create championship</div>
-        <div style={{ marginBottom: 12 }}><label className="f">NAME</label>
-          <input className="input" value={nName} onChange={e => setNName(e.target.value)} placeholder="Season 5" /></div>
-        <div style={{ marginBottom: 12 }}><label className="f">SCHEDULED ROUNDS</label>
-          <input className="input" value={nRounds} onChange={e => setNRounds(e.target.value.replace(/[^\d]/g, ""))} /></div>
-        <div style={{ marginBottom: 12 }}><label className="f">HOUSE RAKE %</label>
-          <input className="input" value={nRake} onChange={e => setNRake(e.target.value.replace(/[^\d]/g, ""))} /></div>
-        <div className="card-flat" style={{ background: "var(--elev)", padding: "12px 14px", marginBottom: 14 }}>
-          <div className="cap" style={{ marginBottom: 6 }}>CREATES</div>
-          <div style={{ fontSize: 13, color: "var(--muted-2)" }}>Drivers' and Constructors' outright markets, seeded with the current roster. Both open for betting immediately and close before the final round.</div></div>
-        <button className="btn btn-y" style={{ width: "100%" }} disabled={!nName.trim() || !Number(nRounds)}
-          onClick={() => { run(createChampionship, { name: nName, rounds: Number(nRounds), rakePct: Number(nRake) || 0 }); setNName(""); }}>Create championship</button>
-      </div>
-    </div>}
+      </div>}
 
     {tab === "rounds" && driversMarketRace && constructorsMarketRace && <div className="grid g2" style={{ gridTemplateColumns: "1fr 1fr", marginTop: 24 }}>
       <MarketEntrantsEditor
