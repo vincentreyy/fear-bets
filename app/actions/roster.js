@@ -84,7 +84,7 @@ export async function toggleDriverStatus(input) {
 const teamSchema = z.object({
   name: z.string().trim().min(1),
   abbr: z.string().trim().min(1).max(3),
-  color: z.string().trim().min(1),
+  color: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/, "Enter a valid hex color."),
 });
 
 export async function addTeam(input) {
@@ -103,6 +103,28 @@ export async function addTeam(input) {
   });
 
   return { ok: true, teamId };
+}
+
+const editTeamSchema = teamSchema.extend({ id: z.string().min(1) });
+
+export async function editTeam(input) {
+  const admin = await requirePermission("manage_championships");
+  const parsed = editTeamSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message || "Invalid team." };
+  const p = parsed.data;
+
+  await db.transaction(async (tx) => {
+    const [team] = await tx.select().from(teams).where(eq(teams.id, p.id));
+    if (!team) throw new Error("Team not found.");
+    await tx.update(teams).set({ name: p.name, abbr: p.abbr.toUpperCase(), color: p.color }).where(eq(teams.id, p.id));
+    await tx.update(drivers).set({ color: p.color }).where(eq(drivers.teamId, p.id));
+    await logAction(tx, {
+      adminId: admin.id, actionType: "Team edited", targetType: "team", targetId: p.id,
+      note: `${p.name} (${p.abbr.toUpperCase()})`,
+    });
+  });
+
+  return { ok: true };
 }
 
 export async function toggleTeamStatus(input) {
