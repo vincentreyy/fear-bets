@@ -44,8 +44,9 @@ export function AdminChampionships({ S }) {
   const [pName, setPName] = useState("");
   const [pRows, setPRows] = useState([25, 18, 15, 12, 10, 8, 6, 4, 2, 1]);
   const [pFl, setPFl] = useState(1);
+  const champList = S.championships.slice().sort((a, b) => b.createdAt - a.createdAt);
   const [listPage, setListPage] = useState(1);
-  const listPageCount = Math.max(1, Math.ceil(S.championships.length / PAGE_SIZE));
+  const listPageCount = Math.max(1, Math.ceil(champList.length / PAGE_SIZE));
   const listP = Math.min(listPage, listPageCount);
   const rounds = ch ? raceWindow(S.races).filter(r => r.champId === ch.id) : [];
   const eligible = raceWindow(S.races);
@@ -63,7 +64,7 @@ export function AdminChampionships({ S }) {
           {S.championships.length ? <>
             <div className="tblwrap"><table>
             <thead><tr><th>Name</th><th>Rounds</th><th style={{ textAlign: "right" }}>House rake</th><th style={{ textAlign: "right" }}>Outright pool</th></tr></thead>
-            <tbody>{S.championships.slice((listP - 1) * PAGE_SIZE, listP * PAGE_SIZE).map(c => {
+            <tbody>{champList.slice((listP - 1) * PAGE_SIZE, listP * PAGE_SIZE).map(c => {
               const roundCount = raceWindow(S.races).filter(r => r.champId === c.id).length;
               const rake = S.races.find(r => r.id === c.driversMarket)?.rake || 0;
               const pool = poolOf(S.bets, c.driversMarket) + poolOf(S.bets, c.constructorsMarket);
@@ -74,7 +75,7 @@ export function AdminChampionships({ S }) {
                 <td className="num" style={{ textAlign: "right" }}>{money(pool)}</td>
               </tr>; })}</tbody>
           </table></div>
-            <Pagination page={listP} pageCount={listPageCount} total={S.championships.length} onChange={setListPage} />
+            <Pagination page={listP} pageCount={listPageCount} total={champList.length} onChange={setListPage} />
           </> : <div className="muted" style={{ padding: "28px 0", textAlign: "center", fontSize: 13 }}>No championships yet.</div>}
         </div>
         <div className="card">
