@@ -1,8 +1,8 @@
 "use client";
 import { useState } from "react";
-import { Dot, Stat, Badge } from "./UserScreens";
+import { Dot, Stat, Badge, Pagination } from "./UserScreens";
 import { useServerAction } from "@/lib/useServerAction";
-import { money, poolOf, raceWindow } from "@/lib/store";
+import { money, poolOf, raceWindow, PAGE_SIZE } from "@/lib/store";
 import {
   createChampionship, toggleRaceCounts, toggleRound as toggleRoundAction, setMarketEntrants,
   setPointsScale, savePointsPreset, deletePointsPreset, renameChampionship, setChampionshipRake,
@@ -44,6 +44,9 @@ export function AdminChampionships({ S }) {
   const [pName, setPName] = useState("");
   const [pRows, setPRows] = useState([25, 18, 15, 12, 10, 8, 6, 4, 2, 1]);
   const [pFl, setPFl] = useState(1);
+  const [listPage, setListPage] = useState(1);
+  const listPageCount = Math.max(1, Math.ceil(S.championships.length / PAGE_SIZE));
+  const listP = Math.min(listPage, listPageCount);
   const rounds = ch ? raceWindow(S.races).filter(r => r.champId === ch.id) : [];
   const eligible = raceWindow(S.races);
   const driversMarketRace = ch ? S.races.find(r => r.id === ch.driversMarket) : null;
@@ -57,9 +60,10 @@ export function AdminChampionships({ S }) {
       <div className="grid g2" style={{ gridTemplateColumns: "1fr 360px", alignItems: "start" }}>
         <div className="card">
           <div className="ttl-sm" style={{ marginBottom: 14 }}>All championships</div>
-          {S.championships.length ? <div className="tblwrap"><table>
+          {S.championships.length ? <>
+            <div className="tblwrap"><table>
             <thead><tr><th>Name</th><th>Rounds</th><th style={{ textAlign: "right" }}>House rake</th><th style={{ textAlign: "right" }}>Outright pool</th></tr></thead>
-            <tbody>{S.championships.map(c => {
+            <tbody>{S.championships.slice((listP - 1) * PAGE_SIZE, listP * PAGE_SIZE).map(c => {
               const roundCount = raceWindow(S.races).filter(r => r.champId === c.id).length;
               const rake = S.races.find(r => r.id === c.driversMarket)?.rake || 0;
               const pool = poolOf(S.bets, c.driversMarket) + poolOf(S.bets, c.constructorsMarket);
@@ -69,7 +73,9 @@ export function AdminChampionships({ S }) {
                 <td className="num" style={{ textAlign: "right" }}>{rake}%</td>
                 <td className="num" style={{ textAlign: "right" }}>{money(pool)}</td>
               </tr>; })}</tbody>
-          </table></div> : <div className="muted" style={{ padding: "28px 0", textAlign: "center", fontSize: 13 }}>No championships yet.</div>}
+          </table></div>
+            <Pagination page={listP} pageCount={listPageCount} total={S.championships.length} onChange={setListPage} />
+          </> : <div className="muted" style={{ padding: "28px 0", textAlign: "center", fontSize: 13 }}>No championships yet.</div>}
         </div>
         <div className="card">
           <div className="ttl-sm" style={{ marginBottom: 14 }}>Create championship</div>

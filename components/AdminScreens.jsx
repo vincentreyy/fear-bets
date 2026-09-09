@@ -1,12 +1,12 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Badge, Dot, Stat, LocalTime } from "./UserScreens";
+import { Badge, Dot, Stat, LocalTime, Pagination } from "./UserScreens";
 import { Check } from "./AdminChamp";
 import { useEntrantLookup } from "@/lib/entrantContext";
 import { useServerAction } from "@/lib/useServerAction";
 import {
-  CUR, fmt, money, ago, dtLocal, poolOf, raceWindow, STATUS,
+  CUR, fmt, money, ago, dtLocal, poolOf, raceWindow, STATUS, PAGE_SIZE,
   POINTS, FL_POINT, CLS_LABEL, CLS_TEXT,
 } from "@/lib/store";
 import {
@@ -76,6 +76,13 @@ export function AdminQueues({ S }) {
   const openWd = S.wdQueue.filter(p => p.status === "pending" || p.status === "approved");
   const openWin = S.winQueue.filter(p => p.status === "pending" || p.status === "approved");
   const byRace = openWin.reduce((m, w) => { (m[w.race] = m[w.race] || []).push(w); return m; }, {});
+  const processedWin = S.winQueue.filter(w => w.status === "paid" || w.status === "held");
+  const [winPage, setWinPage] = useState(1);
+  const winPageCount = Math.max(1, Math.ceil(processedWin.length / PAGE_SIZE));
+  const winP = Math.min(winPage, winPageCount);
+  const [wdPage, setWdPage] = useState(1);
+  const wdPageCount = Math.max(1, Math.ceil(S.wdQueue.length / PAGE_SIZE));
+  const wdP = Math.min(wdPage, wdPageCount);
   return <div>
     <h2 className="ttl-lg" style={{ marginBottom: 6 }}>Approval queues</h2>
     <div className="muted" style={{ fontSize: 13, marginBottom: 20 }}>Payouts queue themselves the moment a race settles — nobody files a request. Deposits and withdrawals are user-initiated. All three need an admin.</div>
@@ -118,15 +125,16 @@ export function AdminQueues({ S }) {
           </tr>)}</tbody></table></div>
       </div>)}
       {!openWin.length && <div className="muted" style={{ padding: "28px 0", textAlign: "center", fontSize: 13 }}>Nothing owed. Payouts appear here on their own the moment a race settles.</div>}
-      {!!S.winQueue.filter(w => w.status === "paid" || w.status === "held").length && <div style={{ marginTop: 8, paddingTop: 16, borderTop: "1px solid var(--hair)" }}>
+      {!!processedWin.length && <div style={{ marginTop: 8, paddingTop: 16, borderTop: "1px solid var(--hair)" }}>
         <div className="cap" style={{ marginBottom: 8 }}>ALREADY PROCESSED</div>
         <div className="tblwrap"><table><thead><tr><th>User</th><th>Race</th><th style={{ textAlign: "right" }}>Payout</th><th>When</th><th style={{ textAlign: "right" }}>Status</th></tr></thead>
-          <tbody>{S.winQueue.filter(w => w.status === "paid" || w.status === "held").map(w => <tr key={w.id} className="rowhov">
+          <tbody>{processedWin.slice((winP - 1) * PAGE_SIZE, winP * PAGE_SIZE).map(w => <tr key={w.id} className="rowhov">
             <td style={{ fontWeight: 500 }}>{w.user}</td><td className="muted2" style={{ fontSize: 13 }}>{w.race}</td>
             <td className="num" style={{ textAlign: "right" }}>{money(w.amount)}</td>
             <td className="muted num" style={{ fontSize: 13 }}>{ago(w.at)}</td>
             <td style={{ textAlign: "right" }}><span className={"badge " + (w.status === "paid" ? "b-open" : "b-live")}>{w.status}</span></td>
           </tr>)}</tbody></table></div>
+        <Pagination page={winP} pageCount={winPageCount} total={processedWin.length} onChange={setWinPage} />
       </div>}
     </div> : tab === "dep" ? <div className="card">
       <div className="tblwrap"><table><thead><tr><th>User</th><th>Character</th><th>Age</th><th style={{ textAlign: "right" }}>Amount</th><th style={{ textAlign: "right" }}>Action</th></tr></thead>
@@ -143,7 +151,7 @@ export function AdminQueues({ S }) {
     </div> : <div className="card">
       <div className="cap" style={{ marginBottom: 12 }}>APPROVE TO CLEAR THE CASH-OUT, THEN MARK PAID ONCE THE IN-GAME HANDOFF IS DONE. REJECTING RETURNS THE FUNDS TO THE USER'S BALANCE.</div>
       <div className="tblwrap tbl-wide"><table><thead><tr><th>User</th><th>Character</th><th>Handoff</th><th>Age</th><th style={{ textAlign: "right" }}>Amount</th><th style={{ textAlign: "right" }}>Status</th><th style={{ textAlign: "right" }}>Action</th></tr></thead>
-        <tbody>{S.wdQueue.map(p => <tr key={p.id} className="rowhov">
+        <tbody>{S.wdQueue.slice((wdP - 1) * PAGE_SIZE, wdP * PAGE_SIZE).map(p => <tr key={p.id} className="rowhov">
           <td style={{ fontWeight: 500 }}>{p.user}</td><td className="muted2">{p.ign}</td>
           <td className="muted2" style={{ fontSize: 13 }}>{p.dest}</td>
           <td className="muted num" style={{ fontSize: 13 }}>{ago(p.at)}</td>
@@ -157,6 +165,7 @@ export function AdminQueues({ S }) {
                 : <button className="btn btn-y btn-xs" onClick={() => run(markWithdrawalPaid, { transactionId: p.id })}>Mark paid</button>}</div>}</td>
         </tr>)}</tbody></table></div>
       {!S.wdQueue.length && <div className="muted" style={{ padding: "28px 0", textAlign: "center", fontSize: 13 }}>No withdrawal requests.</div>}
+      <Pagination page={wdP} pageCount={wdPageCount} total={S.wdQueue.length} onChange={setWdPage} />
     </div>}
     {reject && <div className="modal-bg" onClick={() => setReject(null)}><div className="modal" onClick={e => e.stopPropagation()}>
       <h3 className="ttl-md">{reject.mode === "win" ? "Hold payout" : "Reject " + (reject.mode === "wd" ? "withdrawal" : "deposit")}</h3>
@@ -420,13 +429,17 @@ export function AdminRaces({ S }) {
   const [lock, setLock] = useState(Date.now() + 68 * 3600e3);
   const [gridDrivers, setGridDrivers] = useState(() => S.roster.filter(d => d.status === "active").map(d => d.id));
   const [ren, setRen] = useState(null);
+  const allRaces = raceWindow(S.races);
+  const [racePage, setRacePage] = useState(1);
+  const racePageCount = Math.max(1, Math.ceil(allRaces.length / PAGE_SIZE));
+  const raceP = Math.min(racePage, racePageCount);
   return <div>
     <h2 className="ttl-lg" style={{ marginBottom: 20 }}>Race management</h2>
     <div className="grid g2" style={{ gridTemplateColumns: "1fr 380px", alignItems: "start" }}>
       <div className="card">
         <div className="ttl-sm" style={{ marginBottom: 14 }}>All races</div>
         <div className="tblwrap"><table><thead><tr><th>Race</th><th>Championship</th><th>Scores points</th><th style={{ textAlign: "right" }}>Pool</th><th style={{ textAlign: "right" }}>Status</th><th></th></tr></thead>
-          <tbody>{raceWindow(S.races).map(r => { const ch = S.championships.find(c => c.id === r.champId);
+          <tbody>{allRaces.slice((raceP - 1) * PAGE_SIZE, raceP * PAGE_SIZE).map(r => { const ch = S.championships.find(c => c.id === r.champId);
             return <tr key={r.id} className="rowhov">
             <td><div style={{ fontWeight: 500 }}>{r.name}</div><div className="cap"><LocalTime ts={r.dt} /> · {r.circuit}</div></td>
             <td style={{ fontSize: 13 }}>{ch ? <>{ch.name}<div className="cap">Round {r.round || "—"}</div></> : <span className="muted">Exhibition</span>}</td>
@@ -438,6 +451,7 @@ export function AdminRaces({ S }) {
             <td style={{ textAlign: "right" }}><Badge s={r.status} /></td>
             <td style={{ textAlign: "right" }}>{r.status === "settled" ? <span className="muted" style={{ fontSize: 13 }}>read-only</span> : <button className="btn btn-ghost btn-xs" onClick={() => setRen({ id: r.id, name: r.name, circuit: r.circuit, dt: r.dt, lock: r.lock, rake: String(r.rake), champId: r.champId || "", round: r.round || "", countsD: !!r.countsD, countsC: !!r.countsC, status: r.status, drivers: (r.drivers || []).slice(), gridLocked: r.status !== "upcoming" })}>Edit</button>}</td>
           </tr>; })}</tbody></table></div>
+        <Pagination page={raceP} pageCount={racePageCount} total={allRaces.length} onChange={setRacePage} />
         <div className="cap" style={{ marginTop: 14, color: "var(--muted)" }}>Status flow: upcoming → open → locked (posted qualifying) → live → finished → settled</div>
       </div>
       <div className="card">

@@ -1,8 +1,8 @@
 "use client";
 import { useState } from "react";
-import { Stat } from "./UserScreens";
+import { Stat, Pagination } from "./UserScreens";
 import { useServerAction } from "@/lib/useServerAction";
-import { money, ago } from "@/lib/store";
+import { money, ago, PAGE_SIZE } from "@/lib/store";
 import { logHouseTransaction } from "@/app/actions/finance";
 
 const TYPE_LABEL = {
@@ -24,6 +24,9 @@ export function AdminFinance({ S }) {
   const admins = [...new Set(S.ledger.map(l => l.admin))];
   const list = S.ledger.filter(l => (type === "all" || l.type === type) && (who === "all" || l.admin === who)
     && (l.note + l.admin).toLowerCase().includes(q.toLowerCase()));
+  const [page, setPage] = useState(1);
+  const pageCount = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+  const p = Math.min(page, pageCount);
 
   return <div>
     <div className="hdr" style={{ marginBottom: 20 }}>
@@ -57,7 +60,7 @@ export function AdminFinance({ S }) {
         <div className="ttl-sm" style={{ marginBottom: 14 }}>Ledger</div>
         <div className="tblwrap"><table>
           <thead><tr><th style={{ width: 110 }}>When</th><th>Type</th><th>Note</th><th>Admin</th><th style={{ textAlign: "right" }}>Amount</th></tr></thead>
-          <tbody>{list.map(l => <tr key={l.id} className="rowhov">
+          <tbody>{list.slice((p - 1) * PAGE_SIZE, p * PAGE_SIZE).map(l => <tr key={l.id} className="rowhov">
             <td className="muted num" style={{ fontSize: 13 }}>{ago(l.at)}</td>
             <td><span className="badge b-set">{TYPE_LABEL[l.type] || l.type}</span></td>
             <td className="muted2 wrapcell" style={{ fontSize: 13 }}>{l.note}</td>
@@ -67,6 +70,7 @@ export function AdminFinance({ S }) {
           </tr>)}</tbody>
         </table></div>
         {!list.length && <div className="muted" style={{ padding: "28px 0", textAlign: "center", fontSize: 13 }}>{S.ledger.length ? "No entries match these filters." : "No ledger entries yet."}</div>}
+        <Pagination page={p} pageCount={pageCount} total={list.length} onChange={setPage} />
         {!!S.ledger.length && <div className="cap" style={{ marginTop: 14, color: "var(--muted)" }}>Showing {list.length} of {S.ledger.length} entries</div>}
       </div>
       <div className="card">
