@@ -191,9 +191,10 @@ export function Dashboard({ S, sessionUser }) {
       <div className="card">
         <div className="flex" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div className="ttl-sm">Race calendar</div><div className="cap">Times shown in your local timezone</div></div>
-        <div className="tblwrap"><table><thead><tr><th>Race</th><th>Starts</th><th style={{ textAlign: "right" }}>Total pool</th><th style={{ textAlign: "right" }}>Status</th><th></th></tr></thead>
+        <div className="tblwrap"><table><thead><tr><th>Race</th><th>Bets close</th><th>Starts</th><th style={{ textAlign: "right" }}>Total pool</th><th style={{ textAlign: "right" }}>Status</th><th></th></tr></thead>
           <tbody>{raceWindow(S.races).slice().sort((a, b) => b.dt - a.dt).map(r => <tr key={r.id} className="rowhov">
             <td><div style={{ fontWeight: 500 }}>{r.name}</div><div className="cap">{r.circuit}</div></td>
+            <td className="num muted2" style={{ fontSize: 13 }}><LocalTime ts={r.lock} /></td>
             <td className="num muted2" style={{ fontSize: 13 }}><LocalTime ts={r.dt} /></td>
             <td className="num" style={{ textAlign: "right" }}>{fmt(poolOf(S.bets, r.id))}</td>
             <td style={{ textAlign: "right" }}><Badge s={r.status} /></td>
@@ -246,9 +247,10 @@ export function RacesIndex({ S }) {
     <h2 className="ttl-lg" style={{ marginBottom: 20 }}>Races</h2>
     {list.length ? <div className="card">
       <div className="tblwrap"><table>
-        <thead><tr><th>Race</th><th>Starts</th><th style={{ textAlign: "right" }}>Total pool</th><th style={{ textAlign: "right" }}>Status</th></tr></thead>
+        <thead><tr><th>Race</th><th>Bets close</th><th>Starts</th><th style={{ textAlign: "right" }}>Total pool</th><th style={{ textAlign: "right" }}>Status</th></tr></thead>
         <tbody>{list.map(r => <tr key={r.id} className="rowhov" style={{ cursor: "pointer" }} onClick={() => router.push(`/races/${r.id}`)}>
           <td><div style={{ fontWeight: 500 }}>{r.name}</div><div className="cap">{r.circuit}</div></td>
+          <td className="num muted2" style={{ fontSize: 13 }}><LocalTime ts={r.lock} /></td>
           <td className="num muted2" style={{ fontSize: 13 }}><LocalTime ts={r.dt} /></td>
           <td className="num" style={{ textAlign: "right" }}>{fmt(poolOf(S.bets, r.id))}</td>
           <td style={{ textAlign: "right" }}><Badge s={r.status} /></td>
