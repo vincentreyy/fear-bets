@@ -438,8 +438,15 @@ export function Wallet({ S, sessionUser }) {
   const w = Number(wamt) || 0;
   const TT = { deposit: ["Deposit", "var(--up)"], win: ["Win", "var(--up)"], bet: ["Bet", "var(--body)"], withdrawal: ["Withdrawal", "var(--yellow)"], adjustment: ["Adjustment", "var(--muted-2)"] };
   const DESTS = ["Cash handoff · Mirror Park garage", "Cash handoff · Vinewood casino lot", "Bank transfer · Fleeca Legion Sq."];
+  const statusBadge = s => s === "rejected" ? "b-live" : s === "refunded" ? "b-warn" : s === "approved" ? "b-open" : s === "pending" ? "b-pend" : "b-set";
+  const [txType, setTxType] = useState("all");
+  const [txStatus, setTxStatus] = useState("all");
+  const txTypes = [...new Set(S.tx.map(t => t.type))];
+  const txStatuses = [...new Set(S.tx.map(t => t.status))];
+  const txList = S.tx.filter(t => (txType === "all" || t.type === txType) && (txStatus === "all" || t.status === txStatus))
+    .slice().sort((a, b) => b.at - a.at);
   const [txPage, setTxPage] = useState(1);
-  const txPageCount = Math.max(1, Math.ceil(S.tx.length / PAGE_SIZE));
+  const txPageCount = Math.max(1, Math.ceil(txList.length / PAGE_SIZE));
   const txP = Math.min(txPage, txPageCount);
   return <div className="wrap-wide" style={{ padding: "32px 24px 80px" }}>
     <h2 className="ttl-lg" style={{ marginBottom: 20 }}>Wallet</h2>
@@ -453,15 +460,24 @@ export function Wallet({ S, sessionUser }) {
         </div>
         <div className="card">
           <div className="ttl-sm" style={{ marginBottom: 14 }}>Transaction history</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
+            <div className="flex" style={{ gap: 6, alignItems: "center", flexWrap: "wrap" }}><span className="cap">TYPE</span>
+              <button className={"pill-tab" + (txType === "all" ? " on" : "")} onClick={() => setTxType("all")}>All</button>
+              {txTypes.map(t => <button key={t} className={"pill-tab" + (txType === t ? " on" : "")} onClick={() => setTxType(t)}>{(TT[t] || [t])[0]}</button>)}</div>
+            <div className="flex" style={{ gap: 6, alignItems: "center", flexWrap: "wrap" }}><span className="cap">STATUS</span>
+              <button className={"pill-tab" + (txStatus === "all" ? " on" : "")} onClick={() => setTxStatus("all")}>All</button>
+              {txStatuses.map(s => <button key={s} className={"pill-tab" + (txStatus === s ? " on" : "")} onClick={() => setTxStatus(s)}>{s}</button>)}</div>
+          </div>
           <div className="tblwrap"><table><thead><tr><th>Type</th><th>Detail</th><th>When</th><th style={{ textAlign: "right" }}>Amount</th><th style={{ textAlign: "right" }}>Status</th></tr></thead>
-            <tbody>{S.tx.slice((txP - 1) * PAGE_SIZE, txP * PAGE_SIZE).map(t => <tr key={t.id} className="rowhov">
+            <tbody>{txList.slice((txP - 1) * PAGE_SIZE, txP * PAGE_SIZE).map(t => <tr key={t.id} className="rowhov">
               <td style={{ fontWeight: 500, color: (TT[t.type] || [])[1] }}>{(TT[t.type] || [t.type])[0]}</td>
               <td className="muted2" style={{ fontSize: 13 }}>{t.note}</td>
               <td className="muted num" style={{ fontSize: 13 }}>{ago(t.at)}</td>
-              <td className="num" style={{ textAlign: "right", color: t.amount > 0 ? "var(--up)" : "var(--body)" }}>{t.amount > 0 ? "+" : ""}{fmt(t.amount)}</td>
-              <td style={{ textAlign: "right" }}><span className={"badge " + (t.status === "pending" ? "b-pend" : t.status === "refunded" ? "b-live" : "b-set")}>{t.status}</span></td>
+              <td className="num" style={{ textAlign: "right", color: t.amount > 0 ? "var(--up)" : t.amount < 0 ? "var(--down)" : "var(--body)" }}>{t.amount > 0 ? "+" : ""}{fmt(t.amount)}</td>
+              <td style={{ textAlign: "right" }}><span className={"badge " + statusBadge(t.status)}>{t.status}</span></td>
             </tr>)}</tbody></table></div>
-          <Pagination page={txP} pageCount={txPageCount} total={S.tx.length} onChange={setTxPage} />
+          {!txList.length && <div className="muted" style={{ padding: "28px 0", textAlign: "center", fontSize: 13 }}>No transactions match these filters.</div>}
+          <Pagination page={txP} pageCount={txPageCount} total={txList.length} onChange={setTxPage} />
         </div>
       </div>
       <div className="card">
