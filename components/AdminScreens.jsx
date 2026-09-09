@@ -445,12 +445,12 @@ export function AdminRaces({ S }) {
         <div style={{ marginBottom: 12 }}><label className="f">RACE NAME</label><input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="Grapeseed Rally" /></div>
         <div style={{ marginBottom: 12 }}><label className="f">CIRCUIT / SUBTITLE</label><input className="input" value={circuit} onChange={e => setCircuit(e.target.value)} placeholder="Harbor Street Circuit · 58 laps" /></div>
         <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
-          <div><label className="f">RACE STARTS</label>
-            <input className="input" type="datetime-local" value={dtLocal(dt)} onChange={e => setDt(new Date(e.target.value).getTime() || dt)} />
-            <div className="cap" style={{ color: "var(--muted)", marginTop: 4 }}>When the race itself begins</div></div>
           <div><label className="f">BETTING CLOSES</label>
             <input className="input" type="datetime-local" value={dtLocal(lock)} onChange={e => setLock(new Date(e.target.value).getTime() || lock)} />
-            <div className="cap" style={{ color: "var(--muted)", marginTop: 4 }}>Usually when qualifying is posted</div></div></div>
+            <div className="cap" style={{ color: "var(--muted)", marginTop: 4 }}>Usually when qualifying is posted</div></div>
+          <div><label className="f">RACE STARTS</label>
+            <input className="input" type="datetime-local" value={dtLocal(dt)} onChange={e => setDt(new Date(e.target.value).getTime() || dt)} />
+            <div className="cap" style={{ color: "var(--muted)", marginTop: 4 }}>When the race itself begins</div></div></div>
         {lock >= dt && <div className="cap down" style={{ marginBottom: 12 }}>Betting must close before the race starts — set an earlier closing time.</div>}
         <div style={{ marginBottom: 12 }}><label className="f">HOUSE RAKE %</label><input className="input" value={rake} onChange={e => setRake(e.target.value.replace(/[^\d]/g, ""))} /></div>
         <label className="f">CHAMPIONSHIP</label>
@@ -494,12 +494,12 @@ export function AdminRaces({ S }) {
       <div style={{ marginBottom: 12 }}><label className="f">CIRCUIT / SUBTITLE</label>
         <input className="input" value={ren.circuit} onChange={e => setRen(v => ({ ...v, circuit: e.target.value }))} /></div>
       <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
-        <div><label className="f">RACE STARTS</label>
-          <input className="input" type="datetime-local" value={dtLocal(ren.dt)} onChange={e => setRen(v => ({ ...v, dt: new Date(e.target.value).getTime() || v.dt }))} />
-          <div className="cap" style={{ color: "var(--muted)", marginTop: 4 }}>When the race itself begins</div></div>
         <div><label className="f">BETTING CLOSES</label>
           <input className="input" type="datetime-local" value={dtLocal(ren.lock)} onChange={e => setRen(v => ({ ...v, lock: new Date(e.target.value).getTime() || v.lock }))} />
           <div className="cap" style={{ color: "var(--muted)", marginTop: 4 }}>Usually when qualifying is posted</div></div>
+        <div><label className="f">RACE STARTS</label>
+          <input className="input" type="datetime-local" value={dtLocal(ren.dt)} onChange={e => setRen(v => ({ ...v, dt: new Date(e.target.value).getTime() || v.dt }))} />
+          <div className="cap" style={{ color: "var(--muted)", marginTop: 4 }}>When the race itself begins</div></div>
       </div>
       {ren.lock >= ren.dt && <div className="cap down" style={{ marginBottom: 12 }}>Betting must close before the race starts — set an earlier closing time.</div>}
       <div className="grid" style={{ gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
