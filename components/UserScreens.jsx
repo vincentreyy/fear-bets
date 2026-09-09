@@ -546,7 +546,8 @@ export function MyBets({ S }) {
   const D = useEntrantLookup();
   const [tab, setTab] = useState("all");
   const mine = S.bets;
-  const list = mine.filter(b => tab === "all" || (tab === "open" && b.status === "pending") || (tab === "settled" && b.status !== "pending"));
+  const list = mine.filter(b => tab === "all" || (tab === "open" && b.status === "pending") || (tab === "settled" && b.status !== "pending"))
+    .slice().sort((a, b) => b.at - a.at);
   const won = mine.filter(b => b.status === "won"), staked = mine.reduce((s, b) => s + b.stake, 0), ret = mine.reduce((s, b) => s + b.payout, 0);
   const [page, setPage] = useState(1);
   const pageCount = Math.max(1, Math.ceil(list.length / PAGE_SIZE));

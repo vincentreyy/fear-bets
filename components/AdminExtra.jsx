@@ -40,7 +40,8 @@ export function AdminUsers({ S }) {
   const [reason, setReason] = useState("");
   const [nu, setNu] = useState(null);
   const [pwReveal, setPwReveal] = useState(null);
-  const list = S.users.filter(u => (u.name + u.ign + u.un).toLowerCase().includes(q.toLowerCase()));
+  const list = S.users.filter(u => (u.name + u.ign + u.un).toLowerCase().includes(q.toLowerCase()))
+    .slice().sort((a, b) => b.joined - a.joined);
   const u = S.users.find(x => x.id === open);
   const total = S.users.reduce((s, x) => s + x.bal + x.locked, 0);
   const [page, setPage] = useState(1);

@@ -73,15 +73,17 @@ export function AdminQueues({ S }) {
   const [tab, setTab] = useState("dep");
   const [reject, setReject] = useState(null);
   const [reason, setReason] = useState("");
-  const openWd = S.wdQueue.filter(p => p.status === "pending" || p.status === "approved");
-  const openWin = S.winQueue.filter(p => p.status === "pending" || p.status === "approved");
+  const depList = [...S.depQueue].sort((a, b) => b.at - a.at);
+  const wdList = [...S.wdQueue].sort((a, b) => b.at - a.at);
+  const openWd = wdList.filter(p => p.status === "pending" || p.status === "approved");
+  const openWin = [...S.winQueue].filter(p => p.status === "pending" || p.status === "approved").sort((a, b) => b.at - a.at);
   const byRace = openWin.reduce((m, w) => { (m[w.race] = m[w.race] || []).push(w); return m; }, {});
-  const processedWin = S.winQueue.filter(w => w.status === "paid" || w.status === "held");
+  const processedWin = S.winQueue.filter(w => w.status === "paid" || w.status === "held").sort((a, b) => b.at - a.at);
   const [winPage, setWinPage] = useState(1);
   const winPageCount = Math.max(1, Math.ceil(processedWin.length / PAGE_SIZE));
   const winP = Math.min(winPage, winPageCount);
   const [wdPage, setWdPage] = useState(1);
-  const wdPageCount = Math.max(1, Math.ceil(S.wdQueue.length / PAGE_SIZE));
+  const wdPageCount = Math.max(1, Math.ceil(wdList.length / PAGE_SIZE));
   const wdP = Math.min(wdPage, wdPageCount);
   return <div>
     <h2 className="ttl-lg" style={{ marginBottom: 6 }}>Approval queues</h2>
@@ -138,7 +140,7 @@ export function AdminQueues({ S }) {
       </div>}
     </div> : tab === "dep" ? <div className="card">
       <div className="tblwrap"><table><thead><tr><th>User</th><th>Character</th><th>Age</th><th style={{ textAlign: "right" }}>Amount</th><th style={{ textAlign: "right" }}>Action</th></tr></thead>
-        <tbody>{S.depQueue.map(d => <tr key={d.id} className="rowhov">
+        <tbody>{depList.map(d => <tr key={d.id} className="rowhov">
           <td style={{ fontWeight: 500 }}>{d.user}</td>
           <td className="muted2">{d.ign}</td>
           <td className="muted num" style={{ fontSize: 13 }}>{ago(d.at)}</td>
@@ -151,7 +153,7 @@ export function AdminQueues({ S }) {
     </div> : <div className="card">
       <div className="cap" style={{ marginBottom: 12 }}>APPROVE TO CLEAR THE CASH-OUT, THEN MARK PAID ONCE THE IN-GAME HANDOFF IS DONE. REJECTING RETURNS THE FUNDS TO THE USER'S BALANCE.</div>
       <div className="tblwrap tbl-wide"><table><thead><tr><th>User</th><th>Character</th><th>Handoff</th><th>Age</th><th style={{ textAlign: "right" }}>Amount</th><th style={{ textAlign: "right" }}>Status</th><th style={{ textAlign: "right" }}>Action</th></tr></thead>
-        <tbody>{S.wdQueue.slice((wdP - 1) * PAGE_SIZE, wdP * PAGE_SIZE).map(p => <tr key={p.id} className="rowhov">
+        <tbody>{wdList.slice((wdP - 1) * PAGE_SIZE, wdP * PAGE_SIZE).map(p => <tr key={p.id} className="rowhov">
           <td style={{ fontWeight: 500 }}>{p.user}</td><td className="muted2">{p.ign}</td>
           <td className="muted2" style={{ fontSize: 13 }}>{p.dest}</td>
           <td className="muted num" style={{ fontSize: 13 }}>{ago(p.at)}</td>
@@ -165,7 +167,7 @@ export function AdminQueues({ S }) {
                 : <button className="btn btn-y btn-xs" onClick={() => run(markWithdrawalPaid, { transactionId: p.id })}>Mark paid</button>}</div>}</td>
         </tr>)}</tbody></table></div>
       {!S.wdQueue.length && <div className="muted" style={{ padding: "28px 0", textAlign: "center", fontSize: 13 }}>No withdrawal requests.</div>}
-      <Pagination page={wdP} pageCount={wdPageCount} total={S.wdQueue.length} onChange={setWdPage} />
+      <Pagination page={wdP} pageCount={wdPageCount} total={wdList.length} onChange={setWdPage} />
     </div>}
     {reject && <div className="modal-bg" onClick={() => setReject(null)}><div className="modal" onClick={e => e.stopPropagation()}>
       <h3 className="ttl-md">{reject.mode === "win" ? "Hold payout" : "Reject " + (reject.mode === "wd" ? "withdrawal" : "deposit")}</h3>
@@ -429,7 +431,7 @@ export function AdminRaces({ S }) {
   const [lock, setLock] = useState(Date.now() + 68 * 3600e3);
   const [gridDrivers, setGridDrivers] = useState(() => S.roster.filter(d => d.status === "active").map(d => d.id));
   const [ren, setRen] = useState(null);
-  const allRaces = raceWindow(S.races);
+  const allRaces = raceWindow(S.races).slice().sort((a, b) => b.dt - a.dt);
   const [racePage, setRacePage] = useState(1);
   const racePageCount = Math.max(1, Math.ceil(allRaces.length / PAGE_SIZE));
   const raceP = Math.min(racePage, racePageCount);
