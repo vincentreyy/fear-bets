@@ -1,9 +1,9 @@
 "use client";
 import { useState } from "react";
-import { Stat } from "./UserScreens";
+import { Stat, Pagination } from "./UserScreens";
 import { useServerAction } from "@/lib/useServerAction";
 import { useToast } from "@/components/ToastProvider";
-import { CUR, fmt, money, ago, PERMS, ALL_PERMS, PERM_LABEL } from "@/lib/store";
+import { CUR, fmt, money, ago, PAGE_SIZE, PERMS, ALL_PERMS, PERM_LABEL } from "@/lib/store";
 import { createUser, resetPassword, toggleUserStatus, adjustBalance } from "@/app/actions/users";
 import { createRole, editRole, deleteRole, setUserRole } from "@/app/actions/roles";
 
@@ -43,6 +43,9 @@ export function AdminUsers({ S }) {
   const list = S.users.filter(u => (u.name + u.ign + u.un).toLowerCase().includes(q.toLowerCase()));
   const u = S.users.find(x => x.id === open);
   const total = S.users.reduce((s, x) => s + x.bal + x.locked, 0);
+  const [page, setPage] = useState(1);
+  const pageCount = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+  const p = Math.min(page, pageCount);
   return <div>
     <div className="hdr" style={{ marginBottom: 20 }}>
       <div><h2 className="ttl-lg">Users</h2><div className="muted" style={{ fontSize: 13 }}>{S.users.length} accounts · {money(total)} held across confirmed balances and locked stakes</div></div>
@@ -60,7 +63,7 @@ export function AdminUsers({ S }) {
     <div className="card">
       <div className="tblwrap tbl-wide"><table>
         <thead><tr><th>User</th><th>Character</th><th>Role</th><th style={{ textAlign: "right" }}>Balance</th><th style={{ textAlign: "right" }}>Locked</th><th style={{ textAlign: "right" }}>Net P/L</th><th style={{ textAlign: "right" }}>Status</th><th></th></tr></thead>
-        <tbody>{list.map(x => { const pl = x.ret - x.staked;
+        <tbody>{list.slice((p - 1) * PAGE_SIZE, p * PAGE_SIZE).map(x => { const pl = x.ret - x.staked;
           return <tr key={x.id} className="rowhov">
             <td><div style={{ fontWeight: 500 }}>{x.name}</div><div className="cap">@{x.un}</div></td>
             <td><div className="muted2">{x.ign}</div><div className="cap">{x.invited ? "invited " : "joined "}{ago(x.joined)}</div></td>
@@ -74,6 +77,7 @@ export function AdminUsers({ S }) {
           </tr>; })}</tbody>
       </table></div>
       {!list.length && <div className="muted" style={{ padding: "28px 0", textAlign: "center", fontSize: 13 }}>No accounts match “{q}”.</div>}
+      <Pagination page={p} pageCount={pageCount} total={list.length} onChange={setPage} />
     </div>
     {nu && <div className="modal-bg" onClick={() => setNu(null)}><div className="modal" style={{ maxWidth: 520 }} onClick={ev => ev.stopPropagation()}>
       <h3 className="ttl-md">Create account</h3>
@@ -162,6 +166,9 @@ export function AdminAudit({ S }) {
   const list = S.audit.filter(a => (who === "all" || a.who === who) && (kind === "all" || bucket(a) === kind)
     && (a.act + a.target + a.note).toLowerCase().includes(q.toLowerCase()));
   const admins = [...new Set(S.audit.map(a => a.who))];
+  const [page, setPage] = useState(1);
+  const pageCount = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+  const p = Math.min(page, pageCount);
   return <div>
     <div className="hdr" style={{ marginBottom: 20 }}>
       <div><h2 className="ttl-lg">Audit log</h2><div className="muted" style={{ fontSize: 13 }}>Append-only. Every balance- or result-affecting action is recorded with actor, target, and reason.</div></div>
@@ -182,7 +189,7 @@ export function AdminAudit({ S }) {
     <div className="card">
       <div className="tblwrap tbl-wide"><table>
         <thead><tr><th style={{ width: 130 }}>When</th><th style={{ width: 130 }}>Actor</th><th>Action</th><th>Target</th><th>Reason</th></tr></thead>
-        <tbody>{list.map(a => <tr key={a.id} className="rowhov">
+        <tbody>{list.slice((p - 1) * PAGE_SIZE, p * PAGE_SIZE).map(a => <tr key={a.id} className="rowhov">
           <td className="muted num" style={{ fontSize: 13 }}>{ago(a.at)}</td>
           <td><span className="badge b-set">{a.who}</span></td>
           <td style={{ fontWeight: 500 }}>{a.act}</td>
@@ -191,6 +198,7 @@ export function AdminAudit({ S }) {
         </tr>)}</tbody>
       </table></div>
       {!list.length && <div className="muted" style={{ padding: "28px 0", textAlign: "center", fontSize: 13 }}>No entries match these filters.</div>}
+      <Pagination page={p} pageCount={pageCount} total={list.length} onChange={setPage} />
       <div className="cap" style={{ marginTop: 14, color: "var(--muted)" }}>Showing {list.length} of {S.audit.length} entries · retention 24 months</div>
     </div>
   </div>;

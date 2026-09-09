@@ -9,7 +9,7 @@ import { placeBet as placeBetAction } from "@/app/actions/bets";
 import { requestDeposit, requestWithdrawal } from "@/app/actions/wallet";
 import {
   CUR, fmt, money, poolOf, driverPools, countdown, when, ago,
-  seasonWindow, raceWindow, STATUS,
+  seasonWindow, raceWindow, STATUS, PAGE_SIZE,
   finishOf, classifyOrder, CLS_LABEL, CLS_TEXT,
 } from "@/lib/store";
 
@@ -36,6 +36,21 @@ export function LocalTime({ ts }) {
   const [label, setLabel] = useState(null);
   useEffect(() => { setLabel(when(ts)); }, [ts]);
   return <span suppressHydrationWarning>{label ?? "—"}</span>;
+}
+
+// Client-side pagination over an already-fetched array — matches how
+// filtering already works in this codebase (inline useState, no shared
+// hook). Renders nothing when everything fits on one page. Shows a
+// "1–100 of 12,920" range rather than "Page X of Y".
+export function Pagination({ page, pageCount, total, pageSize = PAGE_SIZE, onChange }) {
+  if (pageCount <= 1) return null;
+  const start = (page - 1) * pageSize + 1;
+  const end = Math.min(page * pageSize, total);
+  return <div className="flex" style={{ justifyContent: "center", gap: 10, alignItems: "center", marginTop: 16 }}>
+    <button className="btn btn-ghost btn-xs" disabled={page <= 1} onClick={() => onChange(page - 1)}>‹</button>
+    <span className="cap num">{fmt(start)}–{fmt(end)} of {fmt(total)}</span>
+    <button className="btn btn-ghost btn-xs" disabled={page >= pageCount} onClick={() => onChange(page + 1)}>›</button>
+  </div>;
 }
 
 /* ---------- Landing ---------- */
@@ -176,6 +191,10 @@ export function Dashboard({ S, sessionUser }) {
   const open = S.bets.filter(b => b.uid === "me" && b.status === "pending");
   const locked = open.reduce((s, b) => s + b.stake, 0);
   const pendingDeposits = S.tx.filter(t => t.type === "deposit" && t.status === "pending").reduce((s, t) => s + t.amount, 0);
+  const calendar = raceWindow(S.races).slice().sort((a, b) => b.dt - a.dt);
+  const [calPage, setCalPage] = useState(1);
+  const calPageCount = Math.max(1, Math.ceil(calendar.length / PAGE_SIZE));
+  const calP = Math.min(calPage, calPageCount);
   return <div className="wrap-wide" style={{ padding: "32px 24px 80px" }}>
     <div className="hdr" style={{ marginBottom: 24 }}>
       <div><h2 className="ttl-lg">Welcome back, {(sessionUser?.displayName || "").split(" ")[0] || sessionUser?.username}</h2><div className="muted" style={{ fontSize: 13 }}>Character: {sessionUser?.ign || "—"}</div></div>
@@ -192,7 +211,7 @@ export function Dashboard({ S, sessionUser }) {
         <div className="flex" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div className="ttl-sm">Race calendar</div><div className="cap">Times shown in your local timezone</div></div>
         <div className="tblwrap"><table><thead><tr><th>Race</th><th>Bets close</th><th>Starts</th><th style={{ textAlign: "right" }}>Total pool</th><th style={{ textAlign: "right" }}>Status</th><th></th></tr></thead>
-          <tbody>{raceWindow(S.races).slice().sort((a, b) => b.dt - a.dt).map(r => <tr key={r.id} className="rowhov">
+          <tbody>{calendar.slice((calP - 1) * PAGE_SIZE, calP * PAGE_SIZE).map(r => <tr key={r.id} className="rowhov">
             <td><div style={{ fontWeight: 500 }}>{r.name}</div><div className="cap">{r.circuit}</div></td>
             <td className="num muted2" style={{ fontSize: 13 }}><LocalTime ts={r.lock} /></td>
             <td className="num muted2" style={{ fontSize: 13 }}><LocalTime ts={r.dt} /></td>
@@ -202,6 +221,7 @@ export function Dashboard({ S, sessionUser }) {
               ? <Link href={`/races/${r.id}`} className="btn btn-y btn-xs">Bet</Link>
               : <Link href={`/races/${r.id}`} className="btn btn-ghost btn-xs">View</Link>}</td>
           </tr>)}</tbody></table></div>
+        <Pagination page={calP} pageCount={calPageCount} total={calendar.length} onChange={setCalPage} />
         <div style={{ marginTop: 24, paddingTop: 20, borderTop: "1px solid var(--hair)" }}>
           <div className="flex" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
             <div className="ttl-sm">Season championship markets</div>{seasonWindow(S.races)[0] && <div className="cap">{seasonWindow(S.races)[0].circuit}</div>}</div>
@@ -243,12 +263,15 @@ export function Dashboard({ S, sessionUser }) {
 export function RacesIndex({ S }) {
   const router = useRouter();
   const list = raceWindow(S.races).slice().sort((a, b) => b.dt - a.dt);
+  const [page, setPage] = useState(1);
+  const pageCount = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+  const p = Math.min(page, pageCount);
   return <div className="wrap-wide" style={{ padding: "32px 24px 80px" }}>
     <h2 className="ttl-lg" style={{ marginBottom: 20 }}>Races</h2>
     {list.length ? <div className="card">
       <div className="tblwrap"><table>
         <thead><tr><th>Race</th><th>Bets close</th><th>Starts</th><th style={{ textAlign: "right" }}>Total pool</th><th style={{ textAlign: "right" }}>Status</th></tr></thead>
-        <tbody>{list.map(r => <tr key={r.id} className="rowhov" style={{ cursor: "pointer" }} onClick={() => router.push(`/races/${r.id}`)}>
+        <tbody>{list.slice((p - 1) * PAGE_SIZE, p * PAGE_SIZE).map(r => <tr key={r.id} className="rowhov" style={{ cursor: "pointer" }} onClick={() => router.push(`/races/${r.id}`)}>
           <td><div style={{ fontWeight: 500 }}>{r.name}</div><div className="cap">{r.circuit}</div></td>
           <td className="num muted2" style={{ fontSize: 13 }}><LocalTime ts={r.lock} /></td>
           <td className="num muted2" style={{ fontSize: 13 }}><LocalTime ts={r.dt} /></td>
@@ -256,6 +279,7 @@ export function RacesIndex({ S }) {
           <td style={{ textAlign: "right" }}><Badge s={r.status} /></td>
         </tr>)}</tbody>
       </table></div>
+      <Pagination page={p} pageCount={pageCount} total={list.length} onChange={setPage} />
     </div> : <div className="card" style={{ padding: 48, textAlign: "center" }}>
       <div className="ttl-sm" style={{ marginBottom: 6 }}>No races yet</div>
       <div className="muted2" style={{ fontSize: 13 }}>Check back once an admin creates one.</div>
@@ -267,17 +291,21 @@ export function RacesIndex({ S }) {
 export function ChampionshipsIndex({ S }) {
   const router = useRouter();
   const list = seasonWindow(S.races);
+  const [page, setPage] = useState(1);
+  const pageCount = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+  const p = Math.min(page, pageCount);
   return <div className="wrap-wide" style={{ padding: "32px 24px 80px" }}>
     <h2 className="ttl-lg" style={{ marginBottom: 20 }}>Championships</h2>
     {list.length ? <div className="card">
       <div className="tblwrap"><table>
         <thead><tr><th>Market</th><th style={{ textAlign: "right" }}>Total pool</th><th style={{ textAlign: "right" }}>Status</th></tr></thead>
-        <tbody>{list.map(r => <tr key={r.id} className="rowhov" style={{ cursor: "pointer" }} onClick={() => router.push(`/championship/${r.id}`)}>
+        <tbody>{list.slice((p - 1) * PAGE_SIZE, p * PAGE_SIZE).map(r => <tr key={r.id} className="rowhov" style={{ cursor: "pointer" }} onClick={() => router.push(`/championship/${r.id}`)}>
           <td><div style={{ fontWeight: 500 }}>{r.name}</div><div className="cap">{r.circuit}</div></td>
           <td className="num" style={{ textAlign: "right" }}>{fmt(poolOf(S.bets, r.id))}</td>
           <td style={{ textAlign: "right" }}><Badge s={r.status} /></td>
         </tr>)}</tbody>
       </table></div>
+      <Pagination page={p} pageCount={pageCount} total={list.length} onChange={setPage} />
     </div> : <div className="card" style={{ padding: 48, textAlign: "center" }}>
       <div className="ttl-sm" style={{ marginBottom: 6 }}>No championship markets yet</div>
       <div className="muted2" style={{ fontSize: 13 }}>Check back once an admin creates a championship.</div>
@@ -396,6 +424,9 @@ export function Wallet({ S, sessionUser }) {
   const w = Number(wamt) || 0;
   const TT = { deposit: ["Deposit", "var(--up)"], win: ["Win", "var(--up)"], bet: ["Bet", "var(--body)"], withdrawal: ["Withdrawal", "var(--yellow)"], adjustment: ["Adjustment", "var(--muted-2)"] };
   const DESTS = ["Cash handoff · Mirror Park garage", "Cash handoff · Vinewood casino lot", "Bank transfer · Fleeca Legion Sq."];
+  const [txPage, setTxPage] = useState(1);
+  const txPageCount = Math.max(1, Math.ceil(S.tx.length / PAGE_SIZE));
+  const txP = Math.min(txPage, txPageCount);
   return <div className="wrap-wide" style={{ padding: "32px 24px 80px" }}>
     <h2 className="ttl-lg" style={{ marginBottom: 20 }}>Wallet</h2>
     <div className="grid g2" style={{ gridTemplateColumns: "1fr 380px", alignItems: "start" }}>
@@ -409,13 +440,14 @@ export function Wallet({ S, sessionUser }) {
         <div className="card">
           <div className="ttl-sm" style={{ marginBottom: 14 }}>Transaction history</div>
           <div className="tblwrap"><table><thead><tr><th>Type</th><th>Detail</th><th>When</th><th style={{ textAlign: "right" }}>Amount</th><th style={{ textAlign: "right" }}>Status</th></tr></thead>
-            <tbody>{S.tx.map(t => <tr key={t.id} className="rowhov">
+            <tbody>{S.tx.slice((txP - 1) * PAGE_SIZE, txP * PAGE_SIZE).map(t => <tr key={t.id} className="rowhov">
               <td style={{ fontWeight: 500, color: (TT[t.type] || [])[1] }}>{(TT[t.type] || [t.type])[0]}</td>
               <td className="muted2" style={{ fontSize: 13 }}>{t.note}</td>
               <td className="muted num" style={{ fontSize: 13 }}>{ago(t.at)}</td>
               <td className="num" style={{ textAlign: "right", color: t.amount > 0 ? "var(--up)" : "var(--body)" }}>{t.amount > 0 ? "+" : ""}{fmt(t.amount)}</td>
               <td style={{ textAlign: "right" }}><span className={"badge " + (t.status === "pending" ? "b-pend" : t.status === "refunded" ? "b-live" : "b-set")}>{t.status}</span></td>
             </tr>)}</tbody></table></div>
+          <Pagination page={txP} pageCount={txPageCount} total={S.tx.length} onChange={setTxPage} />
         </div>
       </div>
       <div className="card">
@@ -502,6 +534,9 @@ export function MyBets({ S }) {
   const mine = S.bets;
   const list = mine.filter(b => tab === "all" || (tab === "open" && b.status === "pending") || (tab === "settled" && b.status !== "pending"));
   const won = mine.filter(b => b.status === "won"), staked = mine.reduce((s, b) => s + b.stake, 0), ret = mine.reduce((s, b) => s + b.payout, 0);
+  const [page, setPage] = useState(1);
+  const pageCount = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+  const p = Math.min(page, pageCount);
   return <div className="wrap-wide" style={{ padding: "32px 24px 80px" }}>
     <h2 className="ttl-lg" style={{ marginBottom: 20 }}>My bets</h2>
     <div className="grid g4" style={{ gridTemplateColumns: "repeat(4,1fr)", marginBottom: 24 }}>
@@ -514,7 +549,7 @@ export function MyBets({ S }) {
       <div className="flex" style={{ gap: 6, marginBottom: 14 }}>
         {[["all", "All"], ["open", "Open"], ["settled", "Settled"]].map(([k, l]) => <button key={k} className={"pill-tab" + (tab === k ? " on" : "")} onClick={() => setTab(k)}>{l}</button>)}</div>
       <div className="tblwrap"><table><thead><tr><th>Race</th><th>Pick</th><th>Placed</th><th style={{ textAlign: "right" }}>Stake</th><th style={{ textAlign: "right" }}>Returned</th><th style={{ textAlign: "right" }}>Result</th></tr></thead>
-        <tbody>{list.map(b => { const r = S.races.find(x => x.id === b.raceId), d = D(b.dId);
+        <tbody>{list.slice((p - 1) * PAGE_SIZE, p * PAGE_SIZE).map(b => { const r = S.races.find(x => x.id === b.raceId), d = D(b.dId);
           return <tr key={b.id} className="rowhov">
             <td><div style={{ fontWeight: 500 }}>{r.name}</div><div className="cap">{r.circuit}</div></td>
             <td><div className="flex" style={{ gap: 8, alignItems: "center" }}><Dot d={d} size={22} /><div>{d.n}
@@ -525,6 +560,7 @@ export function MyBets({ S }) {
             <td className="num" style={{ textAlign: "right", color: b.payout ? "var(--up)" : "var(--muted)" }}>{b.payout ? "+" + fmt(b.payout) : "—"}</td>
             <td style={{ textAlign: "right" }}><span className={"badge " + (b.status === "won" ? "b-open" : b.status === "lost" ? "b-live" : "b-pend")}>{b.status === "pending" ? (r.status === "locked" ? "locked" : "open") : b.status}</span></td>
           </tr>; })}</tbody></table></div>
+      <Pagination page={p} pageCount={pageCount} total={list.length} onChange={setPage} />
     </div>
   </div>;
 }
