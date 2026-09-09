@@ -110,6 +110,20 @@ export function Landing({ S, sessionUser }) {
         </div>)}
       </div>
     </div>
+    <div className="wrap" style={{ paddingBottom: 40 }}>
+      <div className="flex" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
+        <h3 style={{ fontSize: 20, fontWeight: 700 }}>Need an account or a top-up? Call an admin</h3>
+        <div className="cap" style={{ color: "var(--muted)" }}>Accounts are issued by hand — reach any of them in game</div>
+      </div>
+      <div className="grid g3" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
+        {[["Grizelle Nymera", "47493198"], ["Zoraya Yuvika", "62966544"], ["Raiden Dragneel", "91718956"]].map(([name, num]) => (
+          <div className="card-flat" key={name} style={{ padding: 20 }}>
+            <div style={{ fontWeight: 600 }}>{name}</div>
+            <div className="num yel" style={{ marginTop: 4 }}>{num}</div>
+          </div>
+        ))}
+      </div>
+    </div>
     <div className="wrap"><div className="card" style={{ padding: 48, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 32 }}>
       <div><h2 style={{ fontSize: 32, letterSpacing: "-.3px" }}>Four steps from top-up to cash-out</h2>
         <div className="muted2" style={{ marginTop: 10 }}>An admin creates your account and sends a temporary password. Then: deposit → bet → the race settles and your payout queues itself for release → request a withdrawal when you want it in hand.</div></div>
