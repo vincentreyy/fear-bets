@@ -36,6 +36,13 @@
       "when": 1788882058387,
       "tag": "0004_aspiring_true_believers",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789814816955,
+      "tag": "0005_shocking_the_initiative",
+      "breakpoints": true
     }
   ]
 }

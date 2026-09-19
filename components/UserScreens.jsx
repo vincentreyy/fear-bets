@@ -375,7 +375,8 @@ export function RacePage({ S, race, siblings, basePath, sessionUser }) {
               <div><div className="flex" style={{ gap: 8, alignItems: "center", fontWeight: 500 }}>
                 {f && <Dot d={d} size={20} />}<span>{d.n}</span>
                 {win && <span className="badge b-open">Winner</span>}
-                {race.fl === p.id && <span className="badge b-lock">Fastest lap</span>}</div>
+                {race.fl === p.id && <span className="badge b-lock">Fastest lap</span>}
+                {race.pole === p.id && <span className="badge b-lock">Pole</span>}</div>
                 <div className="cap">{out ? CLS_TEXT[f.st] + ((race.why || {})[p.id] ? " — " + race.why[p.id] : "") + " · " + d.t : season ? (((race.market === "constructors" ? S.teams : S.roster).find(x => x.id === p.id) || {}).pts || 0) + " pts · " + d.t : d.t + " · " + p.backers + " backers"}</div></div>
               <div style={{ textAlign: "right" }}><div className="num">{fmt(p.pool)}</div><div className="cap">{CUR}</div></div>
               <div style={{ textAlign: "right" }}><div className="num muted2">{(p.share * 100).toFixed(1)}%</div>

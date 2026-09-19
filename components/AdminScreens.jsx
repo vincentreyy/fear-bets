@@ -260,7 +260,9 @@ export function AdminSettle({ S }) {
   return <div>
     <h2 className="ttl-lg" style={{ marginBottom: 6 }}>Result and settlement</h2>
     <div className="muted" style={{ fontSize: 13, marginBottom: 20 }}>{race.name} · {race.circuit}
-      {!season && (race.champId ? <> · counts toward {ch ? ch.name : "championship"}{race.countsD && race.countsC ? " (drivers + constructors)" : race.countsD ? " (drivers only)" : race.countsC ? " (constructors only)" : " (no points)"}</> : <> · exhibition race, no championship points</>)}</div>
+      {!season && (race.champId ? <> · counts toward {ch ? ch.name : "championship"}{race.countsD && race.countsC ? " (drivers + constructors)" : race.countsD ? " (drivers only)" : race.countsC ? " (constructors only)" : " (no points)"}</> : <> · exhibition race, no championship points</>)}
+      {!season && race.pole && <> · pole: {D(race.pole).n}{ch && ch.pole ? " (+" + ch.pole + " pt, set from race editing)" : ""}</>}</div>
+    {!season && ch && ch.pole > 0 && !race.pole && <div className="cap" style={{ marginBottom: 16, color: "var(--warn)" }}>⚠ No pole position set for this race — edit the race to add one before settling, or it won't earn the +{ch.pole} pt bonus.</div>}
     <div className="grid g2" style={{ gridTemplateColumns: "480px 1fr", alignItems: "start" }}>
       <div className="card">
         <div className="ttl-sm" style={{ marginBottom: 16 }}>Enter official result</div>
@@ -350,7 +352,7 @@ export function AdminSettle({ S }) {
             <div><div className="cap">RAKE ({race.rake}%)</div><div className="num" style={{ fontSize: 20, fontWeight: 600 }}>{money(settling - net)}</div></div>
             <div><div className="cap">DISTRIBUTED</div><div className="num" style={{ fontSize: 20, fontWeight: 600 }}>{paying ? money(net) : "—"}</div></div>
             <div><div className="cap">WINNING BETS</div><div className="num" style={{ fontSize: 20, fontWeight: 600 }}>{paying ? winners.length : "—"}</div></div>
-            {!season && <div><div className="cap">POINTS AWARDED</div><div className="num" style={{ fontSize: 20, fontWeight: 600 }}>{!paying || !race.countsD ? "—" : order.reduce((s, id, i) => s + (pts[i] || 0), 0) + (fl ? flPt : 0)}</div></div>}
+            {!season && <div><div className="cap">POINTS AWARDED</div><div className="num" style={{ fontSize: 20, fontWeight: 600 }}>{!paying || !race.countsD ? "—" : order.reduce((s, id, i) => s + (pts[i] || 0), 0) + (fl ? flPt : 0) + (race.pole ? (ch ? ch.pole : 0) : 0)}</div></div>}
           </div>
           {ruling === "void" ? <div className="card-flat" style={{ background: "var(--elev)", fontSize: 13 }}>
             {season ? "Market" : "Race"} voided. All {allBets.length} stakes ({money(total)}) are refunded to confirmed balances. No payouts and no championship points.</div>
@@ -388,15 +390,25 @@ export function AdminSettle({ S }) {
             {!season && (race.countsD || race.countsC) && <div style={{ marginTop: 24, paddingTop: 16, borderTop: "1px solid var(--hair)" }}>
               <div className="cap" style={{ marginBottom: 8 }}>CHAMPIONSHIP POINTS — {ch ? ch.name.toUpperCase() : "SEASON"}</div>
               <div className="tblwrap"><table><thead><tr><th style={{ width: 46 }}>Pos</th><th>Driver</th><th>Team</th><th style={{ textAlign: "right" }}>Race pts</th><th style={{ textAlign: "right" }}>New total</th></tr></thead>
-                <tbody>{order.map((id, i) => { const base = pts[i] || 0; const bonus = fl === id ? flPt : 0; const d = S.roster.find(x => x.id === id) || D(id);
+                <tbody>{order.map((id, i) => { const base = pts[i] || 0; const bonus = fl === id ? flPt : 0; const poleBonus = race.pole === id ? (ch ? ch.pole : 0) : 0; const d = S.roster.find(x => x.id === id) || D(id);
                   return <tr key={id} className="rowhov">
                     <td className="num" style={{ color: base ? "var(--yellow)" : "var(--muted)", fontWeight: 600 }}>P{i + 1}</td>
                     <td><div className="flex" style={{ gap: 8, alignItems: "center" }}><Dot d={D(id)} size={22} />{D(id).n}
-                      {bonus > 0 && <span className="badge b-lock">FL</span>}</div></td>
+                      {bonus > 0 && <span className="badge b-lock">FL</span>}
+                      {poleBonus > 0 && <span className="badge b-lock">POLE</span>}</div></td>
                     <td className="muted2" style={{ fontSize: 13 }}>{D(id).t}</td>
-                    <td className="num" style={{ textAlign: "right", color: base + bonus ? "var(--up)" : "var(--muted)" }}>{base + bonus ? "+" + (base + bonus) : "0"}</td>
-                    <td className="num" style={{ textAlign: "right", fontWeight: 600 }}>{(d.pts || 0) + (race.countsD ? base + bonus : 0)}</td>
-                  </tr>; })}</tbody></table></div>
+                    <td className="num" style={{ textAlign: "right", color: base + bonus + poleBonus ? "var(--up)" : "var(--muted)" }}>{base + bonus + poleBonus ? "+" + (base + bonus + poleBonus) : "0"}</td>
+                    <td className="num" style={{ textAlign: "right", fontWeight: 600 }}>{(d.pts || 0) + (race.countsD ? base + bonus + poleBonus : 0)}</td>
+                  </tr>; })}
+                  {race.pole && !order.includes(race.pole) && ch && ch.pole > 0 && (() => { const id = race.pole; const d = S.roster.find(x => x.id === id) || D(id);
+                    return <tr key={"pole-" + id} className="rowhov">
+                      <td className="num muted2" style={{ fontSize: 11 }}>{CL[stOf(id)] ? CL[stOf(id)][0] : "—"}</td>
+                      <td><div className="flex" style={{ gap: 8, alignItems: "center" }}><Dot d={D(id)} size={22} />{D(id).n}<span className="badge b-lock">POLE</span></div></td>
+                      <td className="muted2" style={{ fontSize: 13 }}>{D(id).t}</td>
+                      <td className="num" style={{ textAlign: "right", color: "var(--up)" }}>+{ch.pole}</td>
+                      <td className="num" style={{ textAlign: "right", fontWeight: 600 }}>{(d.pts || 0) + (race.countsD ? ch.pole : 0)}</td>
+                    </tr>; })()}</tbody></table></div>
+              <div className="cap" style={{ color: "var(--muted)", marginTop: 8 }}>Pole position is set from race editing, independent of this result, and counts even if the pole-sitter didn't finish.</div>
               <div className="cap" style={{ color: "var(--muted)", marginTop: 10 }}>
                 {race.countsD ? "Drivers' points applied." : "Drivers' points skipped for this round."} {race.countsC ? "Constructor points credited to each driver's team lineup." : "Constructor points skipped for this round."}</div>
             </div>}
@@ -451,7 +463,7 @@ export function AdminRaces({ S }) {
             </div></td>
             <td className="num" style={{ textAlign: "right" }}>{fmt(poolOf(S.bets, r.id))}</td>
             <td style={{ textAlign: "right" }}><Badge s={r.status} /></td>
-            <td style={{ textAlign: "right" }}>{r.status === "settled" ? <span className="muted" style={{ fontSize: 13 }}>read-only</span> : <button className="btn btn-ghost btn-xs" onClick={() => setRen({ id: r.id, name: r.name, circuit: r.circuit, dt: r.dt, lock: r.lock, rake: String(r.rake), champId: r.champId || "", round: r.round || "", countsD: !!r.countsD, countsC: !!r.countsC, status: r.status, drivers: (r.drivers || []).slice(), gridLocked: r.status !== "upcoming" })}>Edit</button>}</td>
+            <td style={{ textAlign: "right" }}>{r.status === "settled" ? <span className="muted" style={{ fontSize: 13 }}>read-only</span> : <button className="btn btn-ghost btn-xs" onClick={() => setRen({ id: r.id, name: r.name, circuit: r.circuit, dt: r.dt, lock: r.lock, rake: String(r.rake), champId: r.champId || "", round: r.round || "", countsD: !!r.countsD, countsC: !!r.countsC, status: r.status, drivers: (r.drivers || []).slice(), gridLocked: r.status !== "upcoming", pole: r.pole || "" })}>Edit</button>}</td>
           </tr>; })}</tbody></table></div>
         <Pagination page={raceP} pageCount={racePageCount} total={allRaces.length} onChange={setRacePage} />
         <div className="cap" style={{ marginTop: 14, color: "var(--muted)" }}>Status flow: upcoming → open → locked (posted qualifying) → live → finished → settled</div>
@@ -508,7 +520,7 @@ export function AdminRaces({ S }) {
       <div style={{ marginBottom: 12 }}><label className="f">RACE NAME</label>
         <input className="input" value={ren.name} onChange={e => setRen(v => ({ ...v, name: e.target.value }))} /></div>
       <div style={{ marginBottom: 12 }}><label className="f">CIRCUIT / SUBTITLE</label>
-        <input className="input" value={ren.circuit} onChange={e => setRen(v => ({ ...v, circuit: e.target.value }))} /></div>
+        <input className="input" value={ren.circuit || ""} onChange={e => setRen(v => ({ ...v, circuit: e.target.value }))} /></div>
       <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
         <div><label className="f">BETTING CLOSES</label>
           <input className="input" type="datetime-local" value={dtLocal(ren.lock)} onChange={e => setRen(v => ({ ...v, lock: new Date(e.target.value).getTime() || v.lock }))} />
@@ -540,13 +552,19 @@ export function AdminRaces({ S }) {
             <input type="checkbox" checked={!!ren[f]} disabled={!ren.champId} onChange={e => setRen(v => ({ ...v, [f]: e.target.checked }))} style={{ accentColor: "var(--yellow)" }} />{l}</label>)}
         {!ren.champId && <div className="cap" style={{ color: "var(--muted)", marginTop: 4 }}>Exhibition races award no points.</div>}
       </div>
+      <div style={{ marginBottom: 12 }}><label className="f">POLE POSITION</label>
+        <select className="input" value={ren.pole} onChange={e => setRen(v => ({ ...v, pole: e.target.value }))}>
+          <option value="">None awarded</option>
+          {ren.drivers.map(id => <option key={id} value={id}>{D(id).n}</option>)}
+        </select>
+        <div className="cap" style={{ color: "var(--muted)", marginTop: 4 }}>Fastest qualifying lap. Independent of the race result — counts even if this driver DNFs.</div></div>
       <div className="flex" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
         <label className="f">GRID ({ren.drivers.length} DRIVERS)</label>
           {ren.gridLocked && <span className="badge b-lock">locked — betting is open</span>}</div>
       <div className="card-flat" style={{ background: "var(--canvas)", maxHeight: 160, overflow: "auto", padding: 10, opacity: ren.gridLocked ? .5 : 1 }}>
         {S.roster.filter(d => d.status !== "retired").map(d => <label key={d.id} className="flex" style={{ gap: 10, alignItems: "center", padding: "6px 4px", fontSize: 13, cursor: ren.gridLocked ? "not-allowed" : "pointer" }}>
           <input type="checkbox" checked={ren.drivers.includes(d.id)} disabled={ren.gridLocked}
-            onChange={e => setRen(v => ({ ...v, drivers: e.target.checked ? [...v.drivers, d.id] : v.drivers.filter(x => x !== d.id) }))} style={{ accentColor: "var(--yellow)" }} />
+            onChange={e => setRen(v => ({ ...v, drivers: e.target.checked ? [...v.drivers, d.id] : v.drivers.filter(x => x !== d.id), pole: !e.target.checked && v.pole === d.id ? "" : v.pole }))} style={{ accentColor: "var(--yellow)" }} />
           <Dot d={D(d.id)} size={20} />{d.n}</label>)}
       </div>
       <div className="flex" style={{ gap: 10, marginTop: 20, justifyContent: "flex-end" }}>
@@ -558,7 +576,7 @@ export function AdminRaces({ S }) {
               raceDatetime: new Date(ren.dt), qualifyingLock: new Date(ren.lock),
               rakePct: Number(ren.rake) || 0, championshipId: ren.champId || null, round: Number(ren.round) || null,
               countsDrivers: !!ren.countsD, countsConstructors: !!ren.countsC,
-              status: ren.status, driverIds: ren.drivers,
+              status: ren.status, driverIds: ren.drivers, poleDriverId: ren.pole || null,
             });
             setRen(null);
           }}>Save changes</button></div>

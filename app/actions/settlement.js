@@ -41,11 +41,13 @@ async function loadSettlementContext(tx, raceId) {
 
   let pointsScale = [];
   let flBonus = 0;
+  let polePoint = 0;
   if (race.championshipId) {
     const [champ] = await tx.select().from(championships).where(eq(championships.id, race.championshipId));
     if (champ) {
       pointsScale = champ.points;
       flBonus = champ.fastestLapPoint;
+      polePoint = champ.polePoint;
     }
   }
 
@@ -55,11 +57,11 @@ async function loadSettlementContext(tx, raceId) {
     driverTeamMap = Object.fromEntries(rows.map(r => [r.id, r.teamId]));
   }
 
-  return { race, raceBets, pointsScale, flBonus, driverTeamMap };
+  return { race, raceBets, pointsScale, flBonus, polePoint, driverTeamMap };
 }
 
 async function runComputation(input) {
-  const { race, raceBets, pointsScale, flBonus, driverTeamMap } = await loadSettlementContext(db, input.raceId);
+  const { race, raceBets, pointsScale, flBonus, polePoint, driverTeamMap } = await loadSettlementContext(db, input.raceId);
   const result = computeSettlement({
     race,
     season: input.season,
@@ -69,6 +71,8 @@ async function runComputation(input) {
     pointsScale,
     flBonus,
     fastestLapEntrantId: input.fastestLapEntrantId,
+    polePoint,
+    poleDriverId: race.poleDriverId,
     driverTeamMap,
     ruling: input.ruling,
   });
@@ -96,10 +100,11 @@ export async function confirmSettlement(input) {
 
   try {
     await db.transaction(async (tx) => {
-      const { race, raceBets, pointsScale, flBonus, driverTeamMap } = await loadSettlementContext(tx, p.raceId);
+      const { race, raceBets, pointsScale, flBonus, polePoint, driverTeamMap } = await loadSettlementContext(tx, p.raceId);
       const result = computeSettlement({
         race, season: p.season, champion: p.champion, classifications: p.classifications,
         bets: raceBets, pointsScale, flBonus, fastestLapEntrantId: p.fastestLapEntrantId,
+        polePoint, poleDriverId: race.poleDriverId,
         driverTeamMap, ruling: p.ruling,
       });
 
