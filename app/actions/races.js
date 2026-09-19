@@ -10,7 +10,7 @@ import { logAction } from "@/lib/audit";
 
 const createRaceSchema = z.object({
   name: z.string().trim().min(1),
-  circuit: z.string().trim().optional(),
+  circuit: z.string().trim().optional().nullable(),
   raceDatetime: z.coerce.date(),
   qualifyingLock: z.coerce.date(),
   rakePct: z.number().int().min(0).max(100).default(0),
@@ -71,7 +71,7 @@ export async function createRace(input) {
 const editRaceSchema = z.object({
   id: z.string().min(1),
   name: z.string().trim().min(1),
-  circuit: z.string().trim().optional(),
+  circuit: z.string().trim().optional().nullable(),
   raceDatetime: z.coerce.date(),
   qualifyingLock: z.coerce.date(),
   rakePct: z.number().int().min(0).max(100),
@@ -81,6 +81,7 @@ const editRaceSchema = z.object({
   countsConstructors: z.boolean().default(false),
   status: z.enum(["upcoming", "open", "locked", "live", "finished"]),
   driverIds: z.array(z.string()).optional(), // only applied while status stays "upcoming"
+  poleDriverId: z.string().optional().nullable(), // fastest qualifying lap, independent of the race result
 });
 
 export async function editRace(input) {
@@ -98,6 +99,13 @@ export async function editRace(input) {
     if (!before) throw new Error("Race not found.");
     if (before.status === "settled") throw new Error("A settled race can't be edited.");
 
+    if (p.poleDriverId) {
+      const gridIds = p.driverIds ?? (await tx.select({ entrantId: raceEntrants.entrantId }).from(raceEntrants).where(eq(raceEntrants.raceId, p.id))).map(r => r.entrantId);
+      if (!gridIds.includes(p.poleDriverId)) {
+        throw new Error("Pole position must be someone on this race's grid.");
+      }
+    }
+
     await tx.update(races).set({
       name: p.name,
       circuit: p.circuit || null,
@@ -109,6 +117,7 @@ export async function editRace(input) {
       countsDrivers: p.championshipId ? p.countsDrivers : false,
       countsConstructors: p.championshipId ? p.countsConstructors : false,
       status: p.status,
+      poleDriverId: p.poleDriverId || null,
     }).where(eq(races.id, p.id));
 
     // The grid only freezes while the race is still Upcoming — once betting
@@ -124,6 +133,7 @@ export async function editRace(input) {
     if (before.name !== p.name) diffs.push("name → " + p.name);
     if (before.rakePct !== p.rakePct) diffs.push(`rake ${before.rakePct}% → ${p.rakePct}%`);
     if (before.status !== p.status) diffs.push(`status ${before.status} → ${p.status}`);
+    if (before.poleDriverId !== (p.poleDriverId || null)) diffs.push("pole position changed");
 
     await logAction(tx, {
       adminId: admin.id,
@@ -169,7 +179,7 @@ export async function editRace(input) {
 const renameRaceSchema = z.object({
   id: z.string().min(1),
   name: z.string().trim().min(1),
-  circuit: z.string().trim().optional(),
+  circuit: z.string().trim().optional().nullable(),
 });
 
 export async function renameRace(input) {

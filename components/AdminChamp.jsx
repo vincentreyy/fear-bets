@@ -44,6 +44,7 @@ export function AdminChampionships({ S }) {
   const [pName, setPName] = useState("");
   const [pRows, setPRows] = useState([25, 18, 15, 12, 10, 8, 6, 4, 2, 1]);
   const [pFl, setPFl] = useState(1);
+  const [pPole, setPPole] = useState(0);
   const champList = S.championships.slice().sort((a, b) => b.createdAt - a.createdAt);
   const [listPage, setListPage] = useState(1);
   const listPageCount = Math.max(1, Math.ceil(champList.length / PAGE_SIZE));
@@ -109,7 +110,7 @@ export function AdminChampionships({ S }) {
 
     <div className="grid g4" style={{ gridTemplateColumns: "repeat(4,1fr)", marginBottom: 24 }}>
       <div className="card"><Stat label="ROUNDS COUNTING" value={rounds.length + " / " + ch.rounds} sub={rounds.filter(r => r.status === "settled").length + " settled"} /></div>
-      <div className="card"><Stat label="POINTS SYSTEM" value={ch.points.slice(0, 3).join("–") + "…"} sub={"P1–P" + ch.points.length + (ch.fl ? " + " + ch.fl + " fastest lap" : "")} /></div>
+      <div className="card"><Stat label="POINTS SYSTEM" value={ch.points.slice(0, 3).join("–") + "…"} sub={"P1–P" + ch.points.length + (ch.fl ? " + " + ch.fl + " fastest lap" : "") + (ch.pole ? " + " + ch.pole + " pole" : "")} /></div>
       <div className="card"><Stat label="OUTRIGHT POOLS" value={money(poolOf(S.bets, ch.driversMarket) + poolOf(S.bets, ch.constructorsMarket))} sub="Drivers + constructors" color="var(--up)" /></div>
       <div className="card"><Stat label="HOUSE RAKE" value={(driversMarketRace?.rake || 0) + "%"} sub="Both outright markets" /></div>
     </div>
@@ -167,28 +168,30 @@ export function AdminChampionships({ S }) {
         <div className="flex" style={{ gap: 16, marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--hair)" }}>
           <div><div className="cap">FASTEST LAP BONUS</div><div className="num" style={{ fontSize: 20, fontWeight: 600 }}>+{ch.fl} pt</div>
             <div className="cap" style={{ color: "var(--muted)" }}>Top-10 finish required</div></div>
+          <div><div className="cap">POLE POSITION BONUS</div><div className="num" style={{ fontSize: 20, fontWeight: 600 }}>+{ch.pole} pt</div>
+            <div className="cap" style={{ color: "var(--muted)" }}>Fastest qualifying lap · counts even if DNF</div></div>
           <div><div className="cap">DROPPED WORST RESULTS</div><div className="num" style={{ fontSize: 20, fontWeight: 600 }}>{ch.dropWorst || "None"}</div>
             <div className="cap" style={{ color: "var(--muted)" }}>All rounds count</div></div>
-          <div><div className="cap">MAX PER ROUND</div><div className="num" style={{ fontSize: 20, fontWeight: 600 }}>{ch.points[0] + ch.fl}</div>
-            <div className="cap" style={{ color: "var(--muted)" }}>Win plus fastest lap</div></div>
+          <div><div className="cap">MAX PER ROUND</div><div className="num" style={{ fontSize: 20, fontWeight: 600 }}>{ch.points[0] + ch.fl + ch.pole}</div>
+            <div className="cap" style={{ color: "var(--muted)" }}>Win plus fastest lap plus pole</div></div>
         </div>
       </div>
       <div className="card">
         <div className="ttl-sm" style={{ marginBottom: 4 }}>Preset library</div>
         <div className="cap" style={{ marginBottom: 14 }}>Apply to {ch.name}, or build your own scale below.</div>
         {S.pointsPresets.map(p => {
-          const on = ch.points.join() === p.points.join() && ch.fl === p.fl;
+          const on = ch.points.join() === p.points.join() && ch.fl === p.fl && ch.pole === p.pole;
           return <div key={p.id} className="card-flat"
             style={{ background: on ? "var(--elev)" : "transparent", border: "1px solid " + (on ? "var(--yellow)" : "var(--hair)"), padding: "12px 14px", marginBottom: 8 }}>
             <div className="flex" style={{ justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ fontWeight: 600, fontSize: 13 }}>{p.name}{!p.builtin && <span className="cap muted" style={{ marginLeft: 6 }}>custom</span>}</span>
               <div className="flex" style={{ gap: 6, alignItems: "center" }}>
-                {on ? <span className="badge b-lock">Active</span> : <button className="btn btn-ghost btn-xs" onClick={() => run(setPointsScale, { championshipId: ch.id, points: p.points, fastestLapPoint: p.fl })}>Apply</button>}
-                <button className="btn btn-ghost btn-xs" onClick={() => { setPRows(p.points.slice()); setPFl(p.fl); setPName(p.builtin ? "" : p.name); }}>Edit</button>
+                {on ? <span className="badge b-lock">Active</span> : <button className="btn btn-ghost btn-xs" onClick={() => run(setPointsScale, { championshipId: ch.id, points: p.points, fastestLapPoint: p.fl, polePoint: p.pole })}>Apply</button>}
+                <button className="btn btn-ghost btn-xs" onClick={() => { setPRows(p.points.slice()); setPFl(p.fl); setPPole(p.pole); setPName(p.builtin ? "" : p.name); }}>Edit</button>
                 {!p.builtin && <button className="btn btn-ghost btn-xs" onClick={() => run(deletePointsPreset, { id: p.id })}>Delete</button>}
               </div>
             </div>
-            <div className="cap num" style={{ color: "var(--muted)" }}>{p.points.join(" · ")}{p.fl ? " · FL +" + p.fl : ""}</div>
+            <div className="cap num" style={{ color: "var(--muted)" }}>{p.points.join(" · ")}{p.fl ? " · FL +" + p.fl : ""}{p.pole ? " · Pole +" + p.pole : ""}</div>
           </div>; })}
       </div>
       <div className="card">
@@ -210,14 +213,19 @@ export function AdminChampionships({ S }) {
         <div className="flex" style={{ gap: 8, marginBottom: 14 }}>
           {[0, 1, 2, 3].map(v => <button key={v} className={"btn btn-xs " + (pFl === v ? "btn-y" : "btn-ghost")} onClick={() => setPFl(v)}>{v === 0 ? "None" : "+" + v}</button>)}
         </div>
+        <label className="f">POLE POSITION BONUS</label>
+        <div className="cap" style={{ color: "var(--muted)", marginBottom: 8 }}>Fastest qualifying lap — awarded regardless of the race result.</div>
+        <div className="flex" style={{ gap: 8, marginBottom: 14 }}>
+          {[0, 1, 2, 3].map(v => <button key={v} className={"btn btn-xs " + (pPole === v ? "btn-y" : "btn-ghost")} onClick={() => setPPole(v)}>{v === 0 ? "None" : "+" + v}</button>)}
+        </div>
         <div className="card-flat" style={{ background: "var(--elev)", padding: "12px 14px", marginBottom: 14 }}>
           <div className="cap" style={{ marginBottom: 6 }}>PREVIEW</div>
-          <div className="num" style={{ fontSize: 13 }}>{pRows.join(" · ")}{pFl ? " · FL +" + pFl : ""}</div>
-          <div className="cap" style={{ color: "var(--muted)", marginTop: 4 }}>Scores down to P{pRows.length} · max {pRows[0] + pFl} per round</div>
+          <div className="num" style={{ fontSize: 13 }}>{pRows.join(" · ")}{pFl ? " · FL +" + pFl : ""}{pPole ? " · Pole +" + pPole : ""}</div>
+          <div className="cap" style={{ color: "var(--muted)", marginTop: 4 }}>Scores down to P{pRows.length} · max {pRows[0] + pFl + pPole} per round</div>
         </div>
         <div className="flex" style={{ gap: 8 }}>
-          <button className="btn btn-2 btn-sm" style={{ flex: 1 }} disabled={!pName.trim()} onClick={() => { run(savePointsPreset, { name: pName.trim(), points: pRows, fastestLapPoint: pFl }); setPName(""); }}>Save preset</button>
-          <button className="btn btn-y btn-sm" style={{ flex: 1 }} onClick={() => run(setPointsScale, { championshipId: ch.id, points: pRows, fastestLapPoint: pFl })}>Apply to {ch.name}</button>
+          <button className="btn btn-2 btn-sm" style={{ flex: 1 }} disabled={!pName.trim()} onClick={() => { run(savePointsPreset, { name: pName.trim(), points: pRows, fastestLapPoint: pFl, polePoint: pPole }); setPName(""); }}>Save preset</button>
+          <button className="btn btn-y btn-sm" style={{ flex: 1 }} onClick={() => run(setPointsScale, { championshipId: ch.id, points: pRows, fastestLapPoint: pFl, polePoint: pPole })}>Apply to {ch.name}</button>
         </div>
         <div className="cap" style={{ color: "var(--muted)", marginTop: 10 }}>Saved presets are available to every championship. Changing a live scale recalculates standings from every settled round and is logged.</div>
       </div>
