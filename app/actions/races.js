@@ -19,6 +19,7 @@ const createRaceSchema = z.object({
   countsDrivers: z.boolean().default(false),
   countsConstructors: z.boolean().default(false),
   driverIds: z.array(z.string()).optional(), // defaults to every active driver
+  minLapsForPoints: z.number().int().positive().optional().nullable(), // DNF laps threshold for the min-laps points bonus
 });
 
 export async function createRace(input) {
@@ -46,6 +47,7 @@ export async function createRace(input) {
       round: p.round || null,
       countsDrivers: p.championshipId ? p.countsDrivers : false,
       countsConstructors: p.championshipId ? p.countsConstructors : false,
+      minLapsForPoints: p.minLapsForPoints || null,
     });
 
     const driverIds = p.driverIds && p.driverIds.length
@@ -82,6 +84,7 @@ const editRaceSchema = z.object({
   status: z.enum(["upcoming", "open", "locked", "live", "finished"]),
   driverIds: z.array(z.string()).optional(), // only applied while status stays "upcoming"
   poleDriverId: z.string().optional().nullable(), // fastest qualifying lap, independent of the race result
+  minLapsForPoints: z.number().int().positive().optional().nullable(), // DNF laps threshold for the min-laps points bonus
 });
 
 export async function editRace(input) {
@@ -118,6 +121,7 @@ export async function editRace(input) {
       countsConstructors: p.championshipId ? p.countsConstructors : false,
       status: p.status,
       poleDriverId: p.poleDriverId || null,
+      minLapsForPoints: p.minLapsForPoints || null,
     }).where(eq(races.id, p.id));
 
     // The grid only freezes while the race is still Upcoming — once betting
@@ -134,6 +138,7 @@ export async function editRace(input) {
     if (before.rakePct !== p.rakePct) diffs.push(`rake ${before.rakePct}% → ${p.rakePct}%`);
     if (before.status !== p.status) diffs.push(`status ${before.status} → ${p.status}`);
     if (before.poleDriverId !== (p.poleDriverId || null)) diffs.push("pole position changed");
+    if (before.minLapsForPoints !== (p.minLapsForPoints || null)) diffs.push("min-laps threshold changed");
 
     await logAction(tx, {
       adminId: admin.id,

@@ -9,7 +9,7 @@ import {
 } from "@/lib/db/schema";
 import { requirePermission } from "@/lib/permissions";
 import { logAction } from "@/lib/audit";
-import { POINTS, FL_POINT, POLE_POINT } from "@/lib/store";
+import { POINTS, FL_POINT, POLE_POINT, MIN_LAPS_POINT } from "@/lib/store";
 
 const createChampionshipSchema = z.object({
   name: z.string().trim().min(1),
@@ -56,7 +56,7 @@ export async function createChampionship(input) {
 
     await tx.insert(championships).values({
       id: championshipId, name, rounds, roundsDone: 0, status: "open",
-      points: POINTS, fastestLapPoint: FL_POINT, polePoint: POLE_POINT, dropWorst: 0,
+      points: POINTS, fastestLapPoint: FL_POINT, polePoint: POLE_POINT, minLapsPoint: MIN_LAPS_POINT, dropWorst: 0,
       driversMarketId: driversRaceId, constructorsMarketId: constructorsRaceId,
     });
 
@@ -219,21 +219,22 @@ const setPointsScaleSchema = z.object({
   points: z.array(z.number().int().min(0)).min(1),
   fastestLapPoint: z.number().int().min(0),
   polePoint: z.number().int().min(0).default(0),
+  minLapsPoint: z.number().int().min(0).default(0),
 });
 
 export async function setPointsScale(input) {
   const admin = await requirePermission("manage_championships");
   const parsed = setPointsScaleSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid points scale." };
-  const { championshipId, points, fastestLapPoint, polePoint } = parsed.data;
+  const { championshipId, points, fastestLapPoint, polePoint, minLapsPoint } = parsed.data;
 
   await db.transaction(async (tx) => {
     const [champ] = await tx.select().from(championships).where(eq(championships.id, championshipId));
     if (!champ) throw new Error("Championship not found.");
-    await tx.update(championships).set({ points, fastestLapPoint, polePoint }).where(eq(championships.id, championshipId));
+    await tx.update(championships).set({ points, fastestLapPoint, polePoint, minLapsPoint }).where(eq(championships.id, championshipId));
     await logAction(tx, {
       adminId: admin.id, actionType: "Points system changed", targetType: "championship", targetId: championshipId,
-      note: `${champ.name} · ${points.join("-")}${fastestLapPoint ? " +" + fastestLapPoint + " FL" : ""}${polePoint ? " +" + polePoint + " pole" : ""} · applies to future settlements only`,
+      note: `${champ.name} · ${points.join("-")}${fastestLapPoint ? " +" + fastestLapPoint + " FL" : ""}${polePoint ? " +" + polePoint + " pole" : ""}${minLapsPoint ? " +" + minLapsPoint + " min-laps DNF" : ""} · applies to future settlements only`,
     });
   });
 
@@ -245,6 +246,7 @@ const savePointsPresetSchema = z.object({
   points: z.array(z.number().int().min(0)).min(1),
   fastestLapPoint: z.number().int().min(0),
   polePoint: z.number().int().min(0).default(0),
+  minLapsPoint: z.number().int().min(0).default(0),
 });
 
 export async function savePointsPreset(input) {
@@ -254,10 +256,10 @@ export async function savePointsPreset(input) {
   const p = parsed.data;
 
   await db.transaction(async (tx) => {
-    await tx.insert(pointsPresets).values({ id: createId(), name: p.name, points: p.points, fastestLapPoint: p.fastestLapPoint, polePoint: p.polePoint });
+    await tx.insert(pointsPresets).values({ id: createId(), name: p.name, points: p.points, fastestLapPoint: p.fastestLapPoint, polePoint: p.polePoint, minLapsPoint: p.minLapsPoint });
     await logAction(tx, {
       adminId: admin.id, actionType: "Points preset created", targetType: "points_preset",
-      note: `${p.name} · ${p.points.join("-")}${p.fastestLapPoint ? " +" + p.fastestLapPoint + " FL" : ""}${p.polePoint ? " +" + p.polePoint + " pole" : ""}`,
+      note: `${p.name} · ${p.points.join("-")}${p.fastestLapPoint ? " +" + p.fastestLapPoint + " FL" : ""}${p.polePoint ? " +" + p.polePoint + " pole" : ""}${p.minLapsPoint ? " +" + p.minLapsPoint + " min-laps DNF" : ""}`,
     });
   });
 

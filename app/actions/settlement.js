@@ -16,6 +16,7 @@ const classificationRowSchema = z.object({
   position: z.number().int().positive().nullable(),
   status: z.enum(["finished", "dns", "dnf", "dsq"]),
   reason: z.string().trim().optional(),
+  lapsCompleted: z.number().int().min(0).optional().nullable(), // only meaningful when status = dnf
 });
 
 const settlementInputSchema = z.object({
@@ -42,12 +43,14 @@ async function loadSettlementContext(tx, raceId) {
   let pointsScale = [];
   let flBonus = 0;
   let polePoint = 0;
+  let minLapsPoint = 0;
   if (race.championshipId) {
     const [champ] = await tx.select().from(championships).where(eq(championships.id, race.championshipId));
     if (champ) {
       pointsScale = champ.points;
       flBonus = champ.fastestLapPoint;
       polePoint = champ.polePoint;
+      minLapsPoint = champ.minLapsPoint;
     }
   }
 
@@ -57,11 +60,11 @@ async function loadSettlementContext(tx, raceId) {
     driverTeamMap = Object.fromEntries(rows.map(r => [r.id, r.teamId]));
   }
 
-  return { race, raceBets, pointsScale, flBonus, polePoint, driverTeamMap };
+  return { race, raceBets, pointsScale, flBonus, polePoint, minLapsPoint, driverTeamMap };
 }
 
 async function runComputation(input) {
-  const { race, raceBets, pointsScale, flBonus, polePoint, driverTeamMap } = await loadSettlementContext(db, input.raceId);
+  const { race, raceBets, pointsScale, flBonus, polePoint, minLapsPoint, driverTeamMap } = await loadSettlementContext(db, input.raceId);
   const result = computeSettlement({
     race,
     season: input.season,
@@ -73,6 +76,8 @@ async function runComputation(input) {
     fastestLapEntrantId: input.fastestLapEntrantId,
     polePoint,
     poleDriverId: race.poleDriverId,
+    minLapsPoint,
+    minLapsForPoints: race.minLapsForPoints,
     driverTeamMap,
     ruling: input.ruling,
   });
@@ -100,11 +105,12 @@ export async function confirmSettlement(input) {
 
   try {
     await db.transaction(async (tx) => {
-      const { race, raceBets, pointsScale, flBonus, polePoint, driverTeamMap } = await loadSettlementContext(tx, p.raceId);
+      const { race, raceBets, pointsScale, flBonus, polePoint, minLapsPoint, driverTeamMap } = await loadSettlementContext(tx, p.raceId);
       const result = computeSettlement({
         race, season: p.season, champion: p.champion, classifications: p.classifications,
         bets: raceBets, pointsScale, flBonus, fastestLapEntrantId: p.fastestLapEntrantId,
         polePoint, poleDriverId: race.poleDriverId,
+        minLapsPoint, minLapsForPoints: race.minLapsForPoints,
         driverTeamMap, ruling: p.ruling,
       });
 
@@ -128,6 +134,7 @@ export async function confirmSettlement(input) {
             position: c.status === "finished" ? c.position : null,
             status: c.status,
             reason: c.status === "finished" ? null : (c.reason || null),
+            lapsCompleted: c.status === "dnf" ? (c.lapsCompleted ?? null) : null,
           })));
         }
       }
