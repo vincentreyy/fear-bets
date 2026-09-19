@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Badge, Dot, Stat, LocalTime, Pagination } from "./UserScreens";
 import { Check } from "./AdminChamp";
 import { useEntrantLookup } from "@/lib/entrantContext";
@@ -17,6 +18,7 @@ import { approvePayout, payPayout, holdPayout } from "@/app/actions/payouts";
 import { createRace as createRaceAction, editRace as editRaceAction } from "@/app/actions/races";
 import { confirmSettlement } from "@/app/actions/settlement";
 import { toggleRaceCounts } from "@/app/actions/championships";
+import { awardPointsAdjustment, deletePointsAdjustment } from "@/app/actions/pointAdjustments";
 import { buildSettlementInput } from "@/lib/actionAdapters/settlement";
 
 export function AdminDash({ S, sessionUser }) {
@@ -46,9 +48,12 @@ export function AdminDash({ S, sessionUser }) {
     <div className="grid g2" style={{ gridTemplateColumns: S.audit ? "1.4fr 1fr" : "1fr" }}>
       <div className="card">
         <div className="ttl-sm" style={{ marginBottom: 14 }}>Races needing attention</div>
-        <div className="tblwrap"><table><thead><tr><th>Race</th><th>Betting closes</th><th style={{ textAlign: "right" }}>Pool</th><th style={{ textAlign: "right" }}>Bets</th><th style={{ textAlign: "right" }}>Status</th><th></th></tr></thead>
+        <div className="tblwrap"><table style={{ tableLayout: "fixed" }}><thead><tr>
+          <th style={{ width: "20%" }}>Race</th><th style={{ width: "22%" }}>Betting closes</th><th style={{ width: "14%", textAlign: "right" }}>Pool</th>
+          <th style={{ width: "12%", textAlign: "right" }}>Bets</th><th style={{ width: "16%", textAlign: "right" }}>Status</th><th style={{ width: "16%" }}></th>
+        </tr></thead>
           <tbody>{openRaces.map(r => <tr key={r.id} className="rowhov">
-            <td><div style={{ fontWeight: 500 }}>{r.name}</div><div className="cap">{r.circuit}</div></td>
+            <td className="wrapcell"><div style={{ fontWeight: 500 }}>{r.name}</div></td>
             <td className="num muted2" style={{ fontSize: 13 }}><LocalTime ts={r.lock} /></td>
             <td className="num" style={{ textAlign: "right" }}>{fmt(poolOf(S.bets, r.id))}</td>
             <td className="num" style={{ textAlign: "right" }}>{S.bets.filter(b => b.raceId === r.id).length}</td>
@@ -190,9 +195,32 @@ export function AdminQueues({ S }) {
 export function AdminSettle({ S }) {
   const D = useEntrantLookup();
   const run = useServerAction();
+  const searchParams = useSearchParams();
+  const raceParam = searchParams.get("race");
   const settleable = S.races.filter(r => r.status !== "settled");
-  const [rid, setRid] = useState((S.races.find(r => r.status === "locked") || settleable[0] || S.races[0])?.id || null);
-  const race = settleable.find(r => r.id === rid) || settleable[0];
+  // A `?race=` link (from the Race management table, for a settled race) wins
+  // over the default pick — that's how admins reach a specific settled race's
+  // point-adjustments panel without it needing its own dropdown entry.
+  const [rid, setRid] = useState(() => {
+    if (raceParam && S.races.some(r => r.id === raceParam)) return raceParam;
+    return (S.races.find(r => r.status === "locked") || settleable[0] || S.races[0])?.id || null;
+  });
+  // The lazy useState initializer above only runs on mount — a `?race=` link
+  // clicked while this page is already open (e.g. the "← Back" link, or two
+  // Race management links in a row) is a param change on the same route, not
+  // a remount, so it needs its own effect to actually react to it.
+  useEffect(() => {
+    if (raceParam && S.races.some(r => r.id === raceParam)) {
+      setRid(raceParam);
+    } else if (!raceParam) {
+      setRid((S.races.find(r => r.status === "locked") || settleable[0] || S.races[0])?.id || null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [raceParam]);
+  // Settled races stay selectable (unlike everything else on this screen) so
+  // stewards can still rule on them afterward — see AdminSettledRace.
+  const race = S.races.find(r => r.id === rid) || settleable[0] || S.races[0];
+  const settled = !!race && race.status === "settled";
   const season = !!race && race.kind === "season";
   const ch = race && S.championships.find(c => c.id === race.champId);
   const grid = race ? race.drivers : [];
@@ -226,10 +254,12 @@ export function AdminSettle({ S }) {
     <h2 className="ttl-lg" style={{ marginBottom: 6 }}>Result and settlement</h2>
     <div className="muted" style={{ fontSize: 13, marginBottom: 20 }}>Nothing is waiting on a result.</div>
     <div className="card" style={{ textAlign: "center", padding: "48px 24px" }}>
-      <div className="ttl-sm" style={{ marginBottom: 6 }}>Every market is settled</div>
-      <div className="muted2" style={{ fontSize: 13 }}>Create a race or reopen a championship market and it will appear here once betting locks.</div>
+      <div className="ttl-sm" style={{ marginBottom: 6 }}>No races yet</div>
+      <div className="muted2" style={{ fontSize: 13 }}>Create a race and it will appear here once betting locks.</div>
     </div>
   </div>;
+
+  if (settled) return <AdminSettledRace race={race} run={run} D={D} S={S} />;
 
   const classified = grid.filter(id => stOf(id) === "fin");
   const retired = grid.filter(id => stOf(id) !== "fin");
@@ -444,6 +474,79 @@ export function AdminSettle({ S }) {
   </div>;
 }
 
+// A settled race stays reachable from the MARKET dropdown above, but its
+// result is read-only — the only thing this view lets an admin do is manage
+// point adjustments, which deliberately sit outside the settlement math
+// entirely (see app/actions/pointAdjustments.js) so they're safe to add or
+// remove no matter how long ago the race settled.
+function AdminSettledRace({ race, run, D, S }) {
+  const [entrantId, setEntrantId] = useState("");
+  const [points, setPoints] = useState("");
+  const [reason, setReason] = useState("");
+  const season = race.kind === "season";
+  const ch = S.championships.find(c => c.id === race.champId);
+
+  const submit = () => {
+    run(awardPointsAdjustment, { raceId: race.id, entrantId, points: Number(points) || 0, reason: reason.trim() });
+    setEntrantId(""); setPoints(""); setReason("");
+  };
+
+  return <div>
+    <div className="flex" style={{ justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+      <h2 className="ttl-lg">Result and settlement</h2>
+      <Link href="/admin/settle" className="btn btn-ghost btn-xs">← Back to result & settlement</Link>
+    </div>
+    <div className="muted" style={{ fontSize: 13, marginBottom: 20 }}>{race.name} · {race.circuit} · settled
+      {!season && race.champId && <> · counts toward {ch ? ch.name : "championship"}</>}
+      {!season && race.pole && <> · pole: {D(race.pole).n}</>}</div>
+    <div className="grid g2" style={{ gridTemplateColumns: "480px 1fr", alignItems: "start" }}>
+      <div className="card">
+        <div className="ttl-sm" style={{ marginBottom: 16 }}>Final result</div>
+        {season ? <div className="cap">Champion: {race.result ? D(race.result).n : "—"}</div> : <>
+          <div className="cap" style={{ marginBottom: 8 }}>Official classification</div>
+          <div className="card-flat" style={{ background: "var(--canvas)", padding: "8px 10px", maxHeight: 400, overflow: "auto" }}>
+            {(race.order || []).map((id, i) => <div key={id} className="flex" style={{ justifyContent: "space-between", padding: "6px 4px", fontSize: 13 }}>
+              <div className="flex" style={{ gap: 8, alignItems: "center" }}><span className="cap" style={{ width: 28 }}>P{i + 1}</span><Dot d={D(id)} size={20} />{D(id).n}</div></div>)}
+            {(race.retired || []).map(r => <div key={r.id} className="flex" style={{ justifyContent: "space-between", padding: "6px 4px", fontSize: 13 }}>
+              <div className="flex" style={{ gap: 8, alignItems: "center" }}><span className="cap" style={{ width: 28, color: "var(--muted)" }}>{r.st.toUpperCase()}</span><Dot d={D(r.id)} size={20} />{D(r.id).n}</div>
+              <span className="cap muted2">{r.why}</span></div>)}
+          </div>
+        </>}
+      </div>
+      <div className="card">
+        <div className="ttl-sm" style={{ marginBottom: 4 }}>Point adjustments</div>
+        {season ? <div className="muted" style={{ fontSize: 13, padding: "24px 0", textAlign: "center" }}>Steward point adjustments apply to individual race rounds, not outright markets.</div> : <>
+          <div className="cap" style={{ marginBottom: 16 }}>Discretionary rulings — independent of the settlement above, safe to add or remove any time. Never touches bets, payouts, or the rake already recorded.</div>
+          {race.adjustments.length ? <div className="tblwrap"><table>
+            <thead><tr><th>Driver</th><th style={{ textAlign: "right" }}>Pts</th><th>Reason</th><th>By</th><th></th></tr></thead>
+            <tbody>{race.adjustments.map(a => <tr key={a.id}>
+              <td><div className="flex" style={{ gap: 8, alignItems: "center" }}><Dot d={D(a.entrantId)} size={20} />{D(a.entrantId).n}</div></td>
+              <td className="num" style={{ textAlign: "right", color: a.points > 0 ? "var(--up)" : "var(--down)", fontWeight: 600 }}>{a.points > 0 ? "+" : ""}{a.points}</td>
+              <td className="muted2" style={{ fontSize: 13 }}>{a.reason}</td>
+              <td className="muted2" style={{ fontSize: 13 }}>{a.admin}</td>
+              <td style={{ textAlign: "right" }}><button className="btn btn-ghost btn-xs" onClick={() => run(deletePointsAdjustment, { id: a.id })}>Remove</button></td>
+            </tr>)}</tbody>
+          </table></div> : <div className="muted" style={{ fontSize: 13, padding: "16px 0", textAlign: "center" }}>No adjustments yet.</div>}
+
+          <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--hair)" }}>
+            <div className="ttl-sm" style={{ marginBottom: 12 }}>Award a ruling</div>
+            <label className="f">DRIVER</label>
+            <select className="input" style={{ marginBottom: 12 }} value={entrantId} onChange={e => setEntrantId(e.target.value)}>
+              <option value="">Select…</option>
+              {race.drivers.map(id => <option key={id} value={id}>{D(id).n}</option>)}
+            </select>
+            <label className="f">POINTS (SIGNED — NEGATIVE FOR A PENALTY)</label>
+            <input className="input" style={{ marginBottom: 12 }} placeholder="e.g. 2 or -5" value={points} onChange={e => setPoints(e.target.value.replace(/[^-\d]/g, ""))} />
+            <label className="f">REASON (REQUIRED, LOGGED)</label>
+            <textarea className="input" style={{ marginBottom: 12 }} placeholder="e.g. Technical failure outside driver's control — steward ruling" value={reason} onChange={e => setReason(e.target.value)} />
+            <button className="btn btn-y" style={{ width: "100%" }} disabled={!entrantId || !Number(points) || !reason.trim()} onClick={submit}>Award adjustment</button>
+          </div>
+        </>}
+      </div>
+    </div>
+  </div>;
+}
+
 export function AdminRaces({ S }) {
   const D = useEntrantLookup();
   const run = useServerAction();
@@ -467,18 +570,21 @@ export function AdminRaces({ S }) {
     <div className="grid g2" style={{ gridTemplateColumns: "1fr 380px", alignItems: "start" }}>
       <div className="card">
         <div className="ttl-sm" style={{ marginBottom: 14 }}>All races</div>
-        <div className="tblwrap"><table><thead><tr><th>Race</th><th>Championship</th><th>Scores points</th><th style={{ textAlign: "right" }}>Pool</th><th style={{ textAlign: "right" }}>Status</th><th></th></tr></thead>
+        <div className="tblwrap"><table style={{ tableLayout: "fixed" }}><thead><tr>
+          <th style={{ width: "28%" }}>Race</th><th style={{ width: "15%" }}>Championship</th><th style={{ width: "19%" }}>Scores points</th>
+          <th style={{ width: "8%", textAlign: "right" }}>Pool</th><th style={{ width: "14%", textAlign: "right" }}>Status</th><th style={{ width: "16%" }}></th>
+        </tr></thead>
           <tbody>{allRaces.slice((raceP - 1) * PAGE_SIZE, raceP * PAGE_SIZE).map(r => { const ch = S.championships.find(c => c.id === r.champId);
             return <tr key={r.id} className="rowhov">
-            <td><div style={{ fontWeight: 500 }}>{r.name}</div><div className="cap"><LocalTime ts={r.dt} /> · {r.circuit}</div></td>
-            <td style={{ fontSize: 13 }}>{ch ? <>{ch.name}<div className="cap">Round {r.round || "—"}</div></> : <span className="muted">Exhibition</span>}</td>
-            <td><div className="flex" style={{ gap: 14 }}>
-              {[["Drivers", "countsD"], ["Constr.", "countsC"]].map(([l, f]) => <label key={f} className="flex" style={{ gap: 6, alignItems: "center", fontSize: 12, color: "var(--muted-2)", cursor: "pointer" }}>
+            <td className="wrapcell"><div style={{ fontWeight: 500 }}>{r.name}</div><div className="cap"><LocalTime ts={r.dt} /></div></td>
+            <td className="wrapcell" style={{ fontSize: 13 }}>{ch ? <>{ch.name}<div className="cap">Round {r.round || "—"}</div></> : <span className="muted">Exhibition</span>}</td>
+            <td><div className="flex" style={{ gap: 8 }}>
+              {[["Drv", "countsD"], ["Con", "countsC"]].map(([l, f]) => <label key={f} className="flex" style={{ gap: 6, alignItems: "center", fontSize: 12, color: "var(--muted-2)", cursor: "pointer" }}>
                 <Check on={!!r[f]} onClick={() => run(toggleRaceCounts, { raceId: r.id, field: f })} />{l}</label>)}
             </div></td>
             <td className="num" style={{ textAlign: "right" }}>{fmt(poolOf(S.bets, r.id))}</td>
             <td style={{ textAlign: "right" }}><Badge s={r.status} /></td>
-            <td style={{ textAlign: "right" }}>{r.status === "settled" ? <span className="muted" style={{ fontSize: 13 }}>read-only</span> : <button className="btn btn-ghost btn-xs" onClick={() => setRen({ id: r.id, name: r.name, circuit: r.circuit, dt: r.dt, lock: r.lock, rake: String(r.rake), champId: r.champId || "", round: r.round || "", countsD: !!r.countsD, countsC: !!r.countsC, status: r.status, drivers: (r.drivers || []).slice(), gridLocked: r.status !== "upcoming", pole: r.pole || "", minLaps: r.minLaps != null ? String(r.minLaps) : "" })}>Edit</button>}</td>
+            <td style={{ textAlign: "right" }}>{r.status === "settled" ? <Link href={`/admin/settle?race=${r.id}`} className="btn btn-ghost btn-xs">Adjustments</Link> : <button className="btn btn-ghost btn-xs" onClick={() => setRen({ id: r.id, name: r.name, circuit: r.circuit, dt: r.dt, lock: r.lock, rake: String(r.rake), champId: r.champId || "", round: r.round || "", countsD: !!r.countsD, countsC: !!r.countsC, status: r.status, drivers: (r.drivers || []).slice(), gridLocked: r.status !== "upcoming", pole: r.pole || "", minLaps: r.minLaps != null ? String(r.minLaps) : "" })}>Edit</button>}</td>
           </tr>; })}</tbody></table></div>
         <Pagination page={raceP} pageCount={racePageCount} total={allRaces.length} onChange={setRacePage} />
         <div className="cap" style={{ marginTop: 14, color: "var(--muted)" }}>Status flow: upcoming → open → locked (posted qualifying) → live → finished → settled</div>
