@@ -199,13 +199,14 @@ export function AdminSettle({ S }) {
   const [cls, setCls] = useState({});
   const [pos, setPos] = useState({});
   const [why, setWhy] = useState({});
+  const [laps, setLaps] = useState({});
   const [fl, setFl] = useState("");
   const [champion, setChampion] = useState("");
   const [ruling, setRuling] = useState("settle");
   const [reason, setReason] = useState("");
   const [confirmed, setConfirmed] = useState(false);
 
-  const reset = () => { setCls({}); setPos({}); setWhy({}); setFl(""); setChampion(""); setConfirmed(false); };
+  const reset = () => { setCls({}); setPos({}); setWhy({}); setLaps({}); setFl(""); setChampion(""); setConfirmed(false); };
   const stOf = id => cls[id] || "fin";
   const dirty = () => setConfirmed(false);
   const setStatus = (id, v) => {
@@ -254,6 +255,8 @@ export function AdminSettle({ S }) {
   const winPool = winners.reduce((s, b) => s + b.stake, 0);
   const pts = ch ? ch.points : POINTS;
   const flPt = ch ? ch.fl : FL_POINT;
+  const minLapsPt = ch ? ch.minLaps : 0;
+  const clearsMinLaps = id => race.minLaps != null && stOf(id) === "dnf" && Number(laps[id]) >= race.minLaps;
   const paying = ruling === "settle" || ruling === "adjust";
   const CL = { fin: ["FIN", "var(--body)"], dnf: ["DNF", "var(--down)"], dns: ["DNS", "var(--muted)"], dsq: ["DSQ", "var(--yellow)"] };
 
@@ -261,7 +264,8 @@ export function AdminSettle({ S }) {
     <h2 className="ttl-lg" style={{ marginBottom: 6 }}>Result and settlement</h2>
     <div className="muted" style={{ fontSize: 13, marginBottom: 20 }}>{race.name} · {race.circuit}
       {!season && (race.champId ? <> · counts toward {ch ? ch.name : "championship"}{race.countsD && race.countsC ? " (drivers + constructors)" : race.countsD ? " (drivers only)" : race.countsC ? " (constructors only)" : " (no points)"}</> : <> · exhibition race, no championship points</>)}
-      {!season && race.pole && <> · pole: {D(race.pole).n}{ch && ch.pole ? " (+" + ch.pole + " pt, set from race editing)" : ""}</>}</div>
+      {!season && race.pole && <> · pole: {D(race.pole).n}{ch && ch.pole ? " (+" + ch.pole + " pt, set from race editing)" : ""}</>}
+      {!season && race.minLaps != null && minLapsPt > 0 && <> · DNF past {race.minLaps} laps earns +{minLapsPt} pt</>}</div>
     {!season && ch && ch.pole > 0 && !race.pole && <div className="cap" style={{ marginBottom: 16, color: "var(--warn)" }}>⚠ No pole position set for this race — edit the race to add one before settling, or it won't earn the +{ch.pole} pt bonus.</div>}
     <div className="grid g2" style={{ gridTemplateColumns: "480px 1fr", alignItems: "start" }}>
       <div className="card">
@@ -290,6 +294,7 @@ export function AdminSettle({ S }) {
               <span>DRIVER</span><span style={{ textAlign: "center" }}>STATUS</span><span style={{ textAlign: "center" }}>POS</span><span style={{ textAlign: "center" }}>PTS</span></div>
             {grid.map(id => { const st = stOf(id), p = pos[id];
               const base = st === "fin" && p ? (pts[p - 1] || 0) : 0, bonus = fl === id ? flPt : 0;
+              const minLapsBonus = clearsMinLaps(id) ? minLapsPt : 0;
               return <div key={id} className="clsrow" style={{ padding: "5px 0", borderTop: "1px solid var(--hair)", opacity: st === "fin" ? 1 : .72 }}>
                 <div className="flex" style={{ gap: 8, alignItems: "center", minWidth: 0 }}><Dot d={D(id)} size={22} />
                   <div style={{ minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 500 }}>{D(id).n}</div>
@@ -301,9 +306,12 @@ export function AdminSettle({ S }) {
                   <option value="">—</option>
                   {Array.from({ length: N }, (_, i) => i + 1).map(n => <option key={n} value={n}>P{n}</option>)}
                 </select>
-                <span className="num cap" style={{ textAlign: "center", color: base + bonus ? "var(--body)" : "var(--muted)" }}>{base + bonus}</span>
+                <span className="num cap" style={{ textAlign: "center", color: base + bonus + minLapsBonus ? "var(--body)" : "var(--muted)" }}>{base + bonus + minLapsBonus}</span>
                 {st !== "fin" && <input className="input clswhy" value={why[id] || ""} onChange={ev => { dirty(); setWhy(w => ({ ...w, [id]: ev.target.value })); }}
                   placeholder={st === "dns" ? "Non-runner reason, e.g. withdrawn at scrutineering" : st === "dsq" ? "Exclusion reason, e.g. technical infringement" : "Retirement reason, e.g. collision, lap 12"} />}
+                {st === "dnf" && race.minLaps != null && <input className="input clswhy" type="number" min="0"
+                  value={laps[id] ?? ""} onChange={ev => { dirty(); setLaps(l => ({ ...l, [id]: ev.target.value })); }}
+                  placeholder={`Laps completed (needs ${race.minLaps}+ for +${minLapsPt} pt)`} />}
               </div>; })}
           </div>
           <div className="flex" style={{ justifyContent: "space-between", alignItems: "center", marginTop: 8, flexWrap: "wrap", gap: 6 }}>
@@ -352,7 +360,7 @@ export function AdminSettle({ S }) {
             <div><div className="cap">RAKE ({race.rake}%)</div><div className="num" style={{ fontSize: 20, fontWeight: 600 }}>{money(settling - net)}</div></div>
             <div><div className="cap">DISTRIBUTED</div><div className="num" style={{ fontSize: 20, fontWeight: 600 }}>{paying ? money(net) : "—"}</div></div>
             <div><div className="cap">WINNING BETS</div><div className="num" style={{ fontSize: 20, fontWeight: 600 }}>{paying ? winners.length : "—"}</div></div>
-            {!season && <div><div className="cap">POINTS AWARDED</div><div className="num" style={{ fontSize: 20, fontWeight: 600 }}>{!paying || !race.countsD ? "—" : order.reduce((s, id, i) => s + (pts[i] || 0), 0) + (fl ? flPt : 0) + (race.pole ? (ch ? ch.pole : 0) : 0)}</div></div>}
+            {!season && <div><div className="cap">POINTS AWARDED</div><div className="num" style={{ fontSize: 20, fontWeight: 600 }}>{!paying || !race.countsD ? "—" : order.reduce((s, id, i) => s + (pts[i] || 0), 0) + (fl ? flPt : 0) + (race.pole ? (ch ? ch.pole : 0) : 0) + grid.filter(id => clearsMinLaps(id)).length * minLapsPt}</div></div>}
           </div>
           {ruling === "void" ? <div className="card-flat" style={{ background: "var(--elev)", fontSize: 13 }}>
             {season ? "Market" : "Race"} voided. All {allBets.length} stakes ({money(total)}) are refunded to confirmed balances. No payouts and no championship points.</div>
@@ -400,15 +408,21 @@ export function AdminSettle({ S }) {
                     <td className="num" style={{ textAlign: "right", color: base + bonus + poleBonus ? "var(--up)" : "var(--muted)" }}>{base + bonus + poleBonus ? "+" + (base + bonus + poleBonus) : "0"}</td>
                     <td className="num" style={{ textAlign: "right", fontWeight: 600 }}>{(d.pts || 0) + (race.countsD ? base + bonus + poleBonus : 0)}</td>
                   </tr>; })}
-                  {race.pole && !order.includes(race.pole) && ch && ch.pole > 0 && (() => { const id = race.pole; const d = S.roster.find(x => x.id === id) || D(id);
-                    return <tr key={"pole-" + id} className="rowhov">
+                  {grid.filter(id => !order.includes(id) && ((race.pole === id && ch && ch.pole > 0) || clearsMinLaps(id))).map(id => {
+                    const poleBonus = race.pole === id && ch ? ch.pole : 0;
+                    const minLapsBonus = clearsMinLaps(id) ? minLapsPt : 0;
+                    const total = poleBonus + minLapsBonus;
+                    const d = S.roster.find(x => x.id === id) || D(id);
+                    return <tr key={"extra-" + id} className="rowhov">
                       <td className="num muted2" style={{ fontSize: 11 }}>{CL[stOf(id)] ? CL[stOf(id)][0] : "—"}</td>
-                      <td><div className="flex" style={{ gap: 8, alignItems: "center" }}><Dot d={D(id)} size={22} />{D(id).n}<span className="badge b-lock">POLE</span></div></td>
+                      <td><div className="flex" style={{ gap: 8, alignItems: "center" }}><Dot d={D(id)} size={22} />{D(id).n}
+                        {poleBonus > 0 && <span className="badge b-lock">POLE</span>}
+                        {minLapsBonus > 0 && <span className="badge b-lock">MIN LAPS</span>}</div></td>
                       <td className="muted2" style={{ fontSize: 13 }}>{D(id).t}</td>
-                      <td className="num" style={{ textAlign: "right", color: "var(--up)" }}>+{ch.pole}</td>
-                      <td className="num" style={{ textAlign: "right", fontWeight: 600 }}>{(d.pts || 0) + (race.countsD ? ch.pole : 0)}</td>
-                    </tr>; })()}</tbody></table></div>
-              <div className="cap" style={{ color: "var(--muted)", marginTop: 8 }}>Pole position is set from race editing, independent of this result, and counts even if the pole-sitter didn't finish.</div>
+                      <td className="num" style={{ textAlign: "right", color: "var(--up)" }}>+{total}</td>
+                      <td className="num" style={{ textAlign: "right", fontWeight: 600 }}>{(d.pts || 0) + (race.countsD ? total : 0)}</td>
+                    </tr>; })}</tbody></table></div>
+              <div className="cap" style={{ color: "var(--muted)", marginTop: 8 }}>Pole position is set from race editing, independent of this result, and counts even if the pole-sitter didn't finish. A DNF driver past the race's min-laps threshold earns its bonus the same way.</div>
               <div className="cap" style={{ color: "var(--muted)", marginTop: 10 }}>
                 {race.countsD ? "Drivers' points applied." : "Drivers' points skipped for this round."} {race.countsC ? "Constructor points credited to each driver's team lineup." : "Constructor points skipped for this round."}</div>
             </div>}
@@ -416,7 +430,7 @@ export function AdminSettle({ S }) {
           <div className="flex" style={{ gap: 10, marginTop: 20, justifyContent: "flex-end" }}>
             <button className="btn btn-2 btn-sm" onClick={() => setConfirmed(false)}>Back to edit</button>
             <button className="btn btn-y btn-sm" onClick={() => {
-              const payload = { race, p1, order: season ? [champion] : order, retired: retired.map(id => ({ id, st: stOf(id), why: why[id] || "" })), why, nonRunners, refundBets, refundStake, fl, ruling, reason, winners, net, winPool, pts, flPt };
+              const payload = { race, p1, order: season ? [champion] : order, retired: retired.map(id => ({ id, st: stOf(id), why: why[id] || "", laps: laps[id] })), why, nonRunners, refundBets, refundStake, fl, ruling, reason, winners, net, winPool, pts, flPt };
               run(confirmSettlement, buildSettlementInput(payload));
               reset(); setReason("");
             }}>
@@ -439,6 +453,7 @@ export function AdminRaces({ S }) {
   const [cd, setCd] = useState(true);
   const [cc, setCc] = useState(true);
   const [rake, setRake] = useState("0");
+  const [minLaps, setMinLaps] = useState("");
   const [dt, setDt] = useState(Date.now() + 72 * 3600e3);
   const [lock, setLock] = useState(Date.now() + 68 * 3600e3);
   const [gridDrivers, setGridDrivers] = useState(() => S.roster.filter(d => d.status === "active").map(d => d.id));
@@ -463,7 +478,7 @@ export function AdminRaces({ S }) {
             </div></td>
             <td className="num" style={{ textAlign: "right" }}>{fmt(poolOf(S.bets, r.id))}</td>
             <td style={{ textAlign: "right" }}><Badge s={r.status} /></td>
-            <td style={{ textAlign: "right" }}>{r.status === "settled" ? <span className="muted" style={{ fontSize: 13 }}>read-only</span> : <button className="btn btn-ghost btn-xs" onClick={() => setRen({ id: r.id, name: r.name, circuit: r.circuit, dt: r.dt, lock: r.lock, rake: String(r.rake), champId: r.champId || "", round: r.round || "", countsD: !!r.countsD, countsC: !!r.countsC, status: r.status, drivers: (r.drivers || []).slice(), gridLocked: r.status !== "upcoming", pole: r.pole || "" })}>Edit</button>}</td>
+            <td style={{ textAlign: "right" }}>{r.status === "settled" ? <span className="muted" style={{ fontSize: 13 }}>read-only</span> : <button className="btn btn-ghost btn-xs" onClick={() => setRen({ id: r.id, name: r.name, circuit: r.circuit, dt: r.dt, lock: r.lock, rake: String(r.rake), champId: r.champId || "", round: r.round || "", countsD: !!r.countsD, countsC: !!r.countsC, status: r.status, drivers: (r.drivers || []).slice(), gridLocked: r.status !== "upcoming", pole: r.pole || "", minLaps: r.minLaps != null ? String(r.minLaps) : "" })}>Edit</button>}</td>
           </tr>; })}</tbody></table></div>
         <Pagination page={raceP} pageCount={racePageCount} total={allRaces.length} onChange={setRacePage} />
         <div className="cap" style={{ marginTop: 14, color: "var(--muted)" }}>Status flow: upcoming → open → locked (posted qualifying) → live → finished → settled</div>
@@ -472,15 +487,17 @@ export function AdminRaces({ S }) {
         <div className="ttl-sm" style={{ marginBottom: 14 }}>Create race</div>
         <div style={{ marginBottom: 12 }}><label className="f">RACE NAME</label><input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="Grapeseed Rally" /></div>
         <div style={{ marginBottom: 12 }}><label className="f">CIRCUIT / SUBTITLE</label><input className="input" value={circuit} onChange={e => setCircuit(e.target.value)} placeholder="Harbor Street Circuit · 58 laps" /></div>
-        <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
-          <div><label className="f">BETTING CLOSES</label>
-            <input className="input" type="datetime-local" value={dtLocal(lock)} onChange={e => setLock(new Date(e.target.value).getTime() || lock)} />
-            <div className="cap" style={{ color: "var(--muted)", marginTop: 4 }}>Usually when qualifying is posted</div></div>
-          <div><label className="f">RACE STARTS</label>
-            <input className="input" type="datetime-local" value={dtLocal(dt)} onChange={e => setDt(new Date(e.target.value).getTime() || dt)} />
-            <div className="cap" style={{ color: "var(--muted)", marginTop: 4 }}>When the race itself begins</div></div></div>
+        <div style={{ marginBottom: 12 }}><label className="f">BETTING CLOSES</label>
+          <input className="input" type="datetime-local" value={dtLocal(lock)} onChange={e => setLock(new Date(e.target.value).getTime() || lock)} />
+          <div className="cap" style={{ color: "var(--muted)", marginTop: 4 }}>Usually when qualifying is posted</div></div>
+        <div style={{ marginBottom: 12 }}><label className="f">RACE STARTS</label>
+          <input className="input" type="datetime-local" value={dtLocal(dt)} onChange={e => setDt(new Date(e.target.value).getTime() || dt)} />
+          <div className="cap" style={{ color: "var(--muted)", marginTop: 4 }}>When the race itself begins</div></div>
         {lock >= dt && <div className="cap down" style={{ marginBottom: 12 }}>Betting must close before the race starts — set an earlier closing time.</div>}
-        <div style={{ marginBottom: 12 }}><label className="f">HOUSE RAKE %</label><input className="input" value={rake} onChange={e => setRake(e.target.value.replace(/[^\d]/g, ""))} /></div>
+        <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+          <div><label className="f">HOUSE RAKE %</label><input className="input" value={rake} onChange={e => setRake(e.target.value.replace(/[^\d]/g, ""))} /></div>
+          <div><label className="f">DNF MIN LAPS</label><input className="input" placeholder="Optional" value={minLaps} onChange={e => setMinLaps(e.target.value.replace(/[^\d]/g, ""))} /></div>
+        </div>
         <label className="f">CHAMPIONSHIP</label>
         <select className="input" value={champId} onChange={e => setChampId(e.target.value)}>
           {S.championships.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -505,12 +522,14 @@ export function AdminRaces({ S }) {
             name, circuit, championshipId: champId || null,
             countsDrivers: !!champId && cd, countsConstructors: !!champId && cc, rakePct: Number(rake) || 0,
             raceDatetime: new Date(dt), qualifyingLock: new Date(lock), driverIds: gridDrivers,
+            minLapsForPoints: Number(minLaps) || null,
           });
           setName("");
           setCircuit("");
           setDt(Date.now() + 72 * 3600e3);
           setLock(Date.now() + 68 * 3600e3);
           setGridDrivers(S.roster.filter(d => d.status === "active").map(d => d.id));
+          setMinLaps("");
         }}>Create and open betting</button>
       </div>
     </div>
@@ -530,9 +549,11 @@ export function AdminRaces({ S }) {
           <div className="cap" style={{ color: "var(--muted)", marginTop: 4 }}>When the race itself begins</div></div>
       </div>
       {ren.lock >= ren.dt && <div className="cap down" style={{ marginBottom: 12 }}>Betting must close before the race starts — set an earlier closing time.</div>}
-      <div className="grid" style={{ gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
+      <div className="grid" style={{ gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
         <div><label className="f">HOUSE RAKE %</label>
           <input className="input" value={ren.rake} onChange={e => setRen(v => ({ ...v, rake: e.target.value.replace(/[^\d]/g, "") }))} /></div>
+        <div><label className="f">DNF MIN LAPS</label>
+          <input className="input" placeholder="Optional" value={ren.minLaps} onChange={e => setRen(v => ({ ...v, minLaps: e.target.value.replace(/[^\d]/g, "") }))} /></div>
         <div><label className="f">ROUND</label>
           <input className="input" value={ren.round} disabled={!ren.champId} onChange={e => setRen(v => ({ ...v, round: e.target.value.replace(/[^\d]/g, "") }))} /></div>
         <div><label className="f">STATUS</label>
@@ -577,6 +598,7 @@ export function AdminRaces({ S }) {
               rakePct: Number(ren.rake) || 0, championshipId: ren.champId || null, round: Number(ren.round) || null,
               countsDrivers: !!ren.countsD, countsConstructors: !!ren.countsC,
               status: ren.status, driverIds: ren.drivers, poleDriverId: ren.pole || null,
+              minLapsForPoints: Number(ren.minLaps) || null,
             });
             setRen(null);
           }}>Save changes</button></div>
