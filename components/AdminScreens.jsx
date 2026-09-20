@@ -398,17 +398,19 @@ export function AdminSettle({ S }) {
             Market frozen for investigation. All {allBets.length} stakes ({money(total)}) stay locked — nothing credits, nothing refunds, and no points are awarded. The race stays on this screen until you settle or void it, and every backer is notified that their bet is under review.</div> : <>
             {!!refundBets.length && <div style={{ marginBottom: 20 }}>
               <div className="cap" style={{ marginBottom: 8 }}>NON-RUNNERS — STAKES REFUNDED</div>
-              <div className="tblwrap"><table><thead><tr><th>User</th><th>Backed</th><th>Reason</th><th style={{ textAlign: "right" }}>Refund</th></tr></thead>
+              <div className="tblwrap"><table><thead><tr><th>User</th><th>IGN</th><th>Backed</th><th>Reason</th><th style={{ textAlign: "right" }}>Refund</th></tr></thead>
                 <tbody>{refundBets.map(b => <tr key={b.id}>
                   <td style={{ fontWeight: 500 }}>{b.user}</td>
+                  <td className="muted2" style={{ fontSize: 13 }}>{b.ign}</td>
                   <td><div className="flex" style={{ gap: 8, alignItems: "center" }}><Dot d={D(b.dId)} size={22} /><span className="muted2">{D(b.dId).n}</span></div></td>
                   <td className="muted wrapcell" style={{ fontSize: 13 }}>{why[b.dId]}</td>
                   <td className="num" style={{ textAlign: "right", fontWeight: 600 }}>{fmt(b.stake)}</td></tr>)}</tbody></table></div>
             </div>}
             <div className="cap" style={{ marginBottom: 8 }}>PAYOUTS — BACKERS OF {p1 ? D(p1).n.toUpperCase() : "—"}</div>
-            <div className="tblwrap"><table><thead><tr><th>User</th><th>Pick</th><th style={{ textAlign: "right" }}>Stake</th><th style={{ textAlign: "right" }}>Pool share</th><th style={{ textAlign: "right" }}>Payout</th></tr></thead>
+            <div className="tblwrap"><table><thead><tr><th>User</th><th>IGN</th><th>Pick</th><th style={{ textAlign: "right" }}>Stake</th><th style={{ textAlign: "right" }}>Pool share</th><th style={{ textAlign: "right" }}>Payout</th></tr></thead>
               <tbody>{winners.map(b => <tr key={b.id}>
                 <td style={{ fontWeight: 500 }}>{b.user}</td>
+                <td className="muted2" style={{ fontSize: 13 }}>{b.ign}</td>
                 <td><div className="flex" style={{ gap: 8, alignItems: "center" }}><Dot d={D(b.dId)} size={22} />{D(b.dId).n}</div></td>
                 <td className="num" style={{ textAlign: "right" }}>{fmt(b.stake)}</td>
                 <td className="num muted2" style={{ textAlign: "right" }}>{((b.stake / winPool) * 100).toFixed(1)}%</td>
